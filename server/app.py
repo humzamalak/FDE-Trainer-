@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import threading
+from datetime import date
 from pathlib import Path
 
 from dotenv import load_dotenv
@@ -17,6 +18,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from server.content import Content
+from server.stats import compute_stats, review_items
 from server.tutor import MODES, api_key_present, stream_reply
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -25,6 +27,7 @@ load_dotenv(ROOT / ".env")
 CONTENT = Content(ROOT / "content")
 DATA_DIR = ROOT / "data"
 PROGRESS_FILE = DATA_DIR / "progress.json"
+CHATS_FILE = DATA_DIR / "chats.json"
 _lock = threading.Lock()
 
 app = FastAPI(title="FDE Trainer")
@@ -48,7 +51,8 @@ def lesson(lesson_id: str) -> dict:
 
 # ---------- progress (stored in data/progress.json, not in git) ----------
 
-EMPTY_PROGRESS = {"lessons": {}, "exercises": {}, "quizzes": {}, "written": {}, "last_lesson": None}
+EMPTY_PROGRESS = {"lessons": {}, "exercises": {}, "quizzes": {}, "written": {}, "last_lesson": None, "activity": {}}
+ACTIVITY_SECTIONS = {"lessons", "exercises", "quizzes", "written"}  # these count as a study day
 
 
 def read_progress() -> dict:
@@ -75,9 +79,16 @@ def get_progress() -> dict:
         return read_progress()
 
 
+def write_json(path: Path, data: object) -> None:
+    DATA_DIR.mkdir(exist_ok=True)
+    tmp = path.with_suffix(".tmp")
+    tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    tmp.replace(path)  # atomic write: a crash never leaves half a file
+
+
 @app.post("/api/progress")
 def update_progress(update: ProgressUpdate) -> dict:
-    if update.section not in EMPTY_PROGRESS:
+    if update.section not in EMPTY_PROGRESS or update.section == "activity":
         raise HTTPException(400, "Unknown section")
     with _lock:
         data = read_progress()
@@ -88,11 +99,70 @@ def update_progress(update: ProgressUpdate) -> dict:
                 data[update.section].pop(update.key, None)
             else:
                 data[update.section][update.key] = update.value
-        DATA_DIR.mkdir(exist_ok=True)
-        tmp = PROGRESS_FILE.with_suffix(".tmp")
-        tmp.write_text(json.dumps(data, indent=2), encoding="utf-8")
-        tmp.replace(PROGRESS_FILE)  # atomic write: a crash never leaves half a file
+                if update.section in ACTIVITY_SECTIONS:
+                    today = date.today().isoformat()
+                    data["activity"][today] = data["activity"].get(today, 0) + 1
+        write_json(PROGRESS_FILE, data)
         return data
+
+
+# ---------- stats, streak and review queue ----------
+
+@app.get("/api/stats")
+def stats() -> dict:
+    with _lock:
+        progress = read_progress()
+    return compute_stats(progress, CONTENT, date.today())
+
+
+@app.get("/api/review")
+def review() -> dict:
+    with _lock:
+        progress = read_progress()
+    return {"items": review_items(progress, CONTENT)}
+
+
+# ---------- saved tutor chats (data/chats.json) ----------
+
+MAX_CHAT_MESSAGES = 200
+
+
+def read_chats() -> dict:
+    if not CHATS_FILE.exists():
+        return {}
+    try:
+        return json.loads(CHATS_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+class ChatSave(BaseModel):
+    messages: list[dict]
+
+
+@app.get("/api/chats/{key:path}")
+def get_chat(key: str) -> dict:
+    with _lock:
+        return {"messages": read_chats().get(key, [])}
+
+
+@app.put("/api/chats/{key:path}")
+def save_chat(key: str, body: ChatSave) -> dict:
+    if len(key) > 200:
+        raise HTTPException(400, "Key too long")
+    clean = [
+        {"role": m["role"], "content": str(m.get("content", ""))}
+        for m in body.messages
+        if m.get("role") in ("user", "assistant")
+    ][-MAX_CHAT_MESSAGES:]
+    with _lock:
+        chats = read_chats()
+        if clean:
+            chats[key] = clean
+        else:
+            chats.pop(key, None)
+        write_json(CHATS_FILE, chats)
+    return {"saved": len(clean)}
 
 
 # ---------- AI tutor ----------

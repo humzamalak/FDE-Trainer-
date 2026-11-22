@@ -37,8 +37,11 @@ It runs on your own computer. It contains all the lessons, more than 110 coding 
 | **20 written tasks** | Free-text answers (designs, STAR stories, customer cases). The AI tutor grades them against a rubric |
 | **AI tutor** | A chat panel that knows the lesson you are on. Ask questions, get hints, get your code explained or reviewed |
 | **Playground** | A free Python editor to try ideas |
+| **Timed drill** | A random exercise from lessons you have studied, with an empty editor and a 20-minute timer |
+| **Review queue** | Every quiz question you answered wrongly, to answer again until it is right |
+| **Study streak** | Days in a row with study activity, shown on the dashboard |
 | **Mock interviews** | Live coding (with an editor), system design, customer case and behavioural rounds, each with a timer and a verdict |
-| **Progress tracking** | Completed lessons, passed exercises, quiz answers and graded written tasks are saved on your computer |
+| **Progress tracking** | Completed lessons, passed exercises, quiz answers, graded written tasks and tutor chats are saved on your computer |
 
 The maths track covers everything an FDE interview uses: Big-O and logarithms, binary and powers of two, counting, probability, statistics for AI evaluations (precision, recall, confidence intervals), vectors and cosine similarity for embeddings, and back-of-envelope estimation. No calculus is needed.
 
@@ -173,7 +176,15 @@ For development, add `--reload` so the server restarts when you change Python fi
 ## 6. A tour of the app
 
 ### Dashboard
-Shows lessons done, exercises passed, a **Continue** button to your next lesson, and progress per track.
+Shows lessons done, exercises passed, your **study streak**, your **quiz accuracy**, a **Continue** button to your next lesson, and progress per track (lessons and exercises).
+
+A day counts towards the streak when you complete a lesson, run an exercise's tests, answer a quiz or submit a written task. The streak stays alive until the end of the next day.
+
+### Drill (top menu)
+Picks a random exercise from lessons you completed or practised. The editor starts with the starter code, not your old answer, so you solve it **from memory**. A 20-minute timer runs. When the tests pass, you see how long you took. Click **New drill** for another. Do one or two drills every day: this is spaced repetition under interview pressure.
+
+### Review (top menu)
+Lists every quiz question you last answered wrongly, with a link to its lesson. Answer it again. A correct answer removes it from the queue. The dashboard shows how many are waiting.
 
 ### Sidebar
 All tracks and lessons. A ✓ marks a completed lesson. Click a track name to open or close it.
@@ -196,7 +207,7 @@ All tracks and lessons. A ✓ marks a completed lesson. Click a track name to op
 - **Mark lesson complete** at the bottom. Do this only when you can do the exercises without help.
 
 ### Ask tutor (top right)
-Opens a chat panel. The tutor knows the current lesson. Each lesson has its own chat. Good questions:
+Opens a chat panel. The tutor knows the current lesson. Each lesson has its own chat, saved in `data/chats.json`, so it is still there after a restart. **Clear** deletes the chat for that lesson. Good questions:
 - "Explain dictionaries again with an AWS example."
 - "Give me 3 more exercises like this one, without solutions."
 - "Quiz me on this lesson, one question at a time."
@@ -223,7 +234,7 @@ Press **Start** to begin and start the timer. Press **Get feedback** at the end 
 
 | Time | Activity |
 |---|---|
-| 10 min | Redo one exercise from a past lesson **from memory** (spaced repetition) |
+| 10 min | One **Drill** (a past exercise from memory) and clear the **Review** queue |
 | 40 min | New lesson: read, type the examples, do the exercises |
 | 30 min | Extra practice: 1–2 problems on neetcode.io that match the lesson (from track 3 onwards) |
 | 10 min | Ask the tutor about anything unclear. Write one line in a learning log |
@@ -305,7 +316,8 @@ Apply to less important companies first, to practise real interviews.
 | "Time limit (8s) reached" | Your code has an infinite loop (often a `while` loop whose condition never changes) |
 | `address already in use` / port 8765 busy | The app is already running in another window, or change the port: `python -m uvicorn server.app:app --port 8766` |
 | Package errors after a Python upgrade | Delete the `.venv` folder and run `run.ps1` again |
-| You want to reset all progress | Stop the app and delete `data\progress.json` |
+| You want to reset all progress | Stop the app and delete `data\progress.json` (and `data\chats.json` for tutor chats) |
+| Every file shows as changed in `git status` on Windows | Line endings. Run `git config core.autocrlf true`, then `git add --renormalize .` |
 
 ---
 
@@ -319,12 +331,15 @@ fde-trainer/
 ├── .env.example                 Settings template (copy to .env)
 ├── learner_profile.example.md   Template for your profile (copy to learner_profile.md)
 ├── server/
-│   ├── app.py        FastAPI server: /api/curriculum, /api/lesson, /api/progress, /api/tutor
+│   ├── app.py        FastAPI server: /api/curriculum, /api/lesson, /api/progress, /api/stats,
+│   │                 /api/review, /api/chats, /api/tutor
 │   ├── content.py    Reads the lesson Markdown and its exercise/quiz/written blocks
+│   ├── stats.py      Totals per track, study streak, review queue
 │   └── tutor.py      Builds the tutor prompt (mode + your profile + lesson) and streams Claude's reply
 ├── static/
 │   ├── index.html    The page
-│   ├── app.js        The frontend: routing, lessons, editor, quizzes, tutor, mock interviews
+│   ├── app.js        The frontend: routing, dashboard, lessons, editor, quizzes, tutor, drill,
+│   │                 review queue, mock interviews
 │   ├── pyworker.js   Runs Python in a Web Worker with Pyodide and grades the tests
 │   └── style.css
 ├── content/          All the training material (Markdown)
@@ -338,8 +353,10 @@ fde-trainer/
 │   └── 07-interview-ready/
 ├── tests/
 │   ├── test_content.py   Every exercise: solution passes, starter fails; every quiz has an answer
-│   └── test_api.py       API endpoint tests
-└── data/             Your progress (created at run time, ignored by git)
+│   ├── test_api.py       API endpoint tests
+│   └── test_stats.py     Streak, stats, review queue and saved chats
+├── .github/workflows/tests.yml   Runs pytest on GitHub for every push
+└── data/             Your progress and tutor chats (created at run time, ignored by git)
 ```
 
 ### How it works
@@ -347,7 +364,7 @@ fde-trainer/
 1. The browser asks the server for the curriculum and a lesson.
 2. The server reads the lesson's Markdown file and turns each `:::exercise`, `:::quiz` and `:::written` block into data.
 3. The browser shows the lesson. Exercise code runs **in the browser** in a Web Worker with Pyodide (Python compiled to WebAssembly). The worker runs your code, then each test line, and reports the results. If the code runs longer than 8 seconds, the worker is stopped.
-4. Progress is sent to the server and written to `data/progress.json`.
+4. Progress is sent to the server and written to `data/progress.json`. Each save also records today's date in `activity`, which drives the streak. `/api/stats` and `/api/review` are computed from this file and the lesson content. Tutor chats are saved to `data/chats.json`.
 5. Tutor questions go to `/api/tutor`. The server adds a system prompt (the mode, your profile and the lesson text) and streams the reply from the Claude API back to the browser.
 
 Reading `server/app.py`, `server/content.py` and `server/tutor.py` after track 1 is good practice: it is a small, real FastAPI project.
@@ -401,20 +418,20 @@ The prompt for a free-text answer.
 python -m pytest
 ```
 
-All tests must pass before you commit changes to the content or the server.
+All tests must pass before you commit changes to the content or the server. GitHub Actions runs the same tests on every push (see the **Actions** tab on GitHub).
 
 ---
 
 ## 15. Improve the app yourself (practice projects)
 
-These are good take-home-style tasks once you finish track 1. Use a branch, write tests, and open a pull request to yourself.
+The first six practice features (review queue, streak, saved chats, stats endpoint, CI, timed drill) are now built in. Read how they work — `server/stats.py` and `tests/test_stats.py` are short — then try these. They are good take-home-style tasks once you finish track 1. Use a branch, write tests, and open a pull request to yourself.
 
-1. **Review queue** — a page that lists the quiz questions you got wrong.
-2. **Streak counter** — days in a row with a completed lesson, on the dashboard.
-3. **Save tutor chats** to `data/` so they survive a restart.
-4. **Stats endpoint** — `/api/stats` with totals per track, plus a test.
-5. **CI** — a GitHub Actions workflow that runs `pytest` on every push.
-6. **Timed drill mode** — a random exercise from finished lessons, with a 20-minute timer.
+1. **Drill history** — save each drill result (exercise, time taken, passed) and show your average time per track.
+2. **Weak-topic finder** — rank lessons by failed test runs and wrong quiz answers; suggest what to review.
+3. **Export progress** — a button that downloads a Markdown summary of your progress for your learning log.
+4. **Tutor cost meter** — read token usage from the API response and show the cost per chat.
+5. **Lesson search** — a search box that finds lessons by keyword (try the BM25-lite idea from track 4).
+6. **Dark/light toggle** — store the choice in `localStorage`.
 
 ---
 

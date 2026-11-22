@@ -73,6 +73,13 @@ function renderMarkdown(md, target) {
   target.querySelectorAll("pre code").forEach((c) => { try { hljs.highlightElement(c); } catch (e) {} });
 }
 
+// Short text (quiz questions/options) with inline Markdown such as `code`.
+function inlineMd(text) {
+  const span = el("span");
+  span.innerHTML = DOMPurify.sanitize(marked.parseInline(text || ""));
+  return span;
+}
+
 // ---------- Python runner (Pyodide in a worker) ----------
 const runner = {
   worker: null, ready: null, pending: new Map(), nextId: 1,
@@ -129,6 +136,25 @@ function makeEditor(parent, value) {
 // ---------- Tutor drawer ----------
 function chat(key) { return (state.chats[key] ||= []); }
 
+// Chats are saved in data/chats.json, so they survive a restart.
+async function setChatKey(key) {
+  state.chatKey = key;
+  if (!(key in state.chats)) {
+    try {
+      const saved = await api(`/api/chats/${encodeURIComponent(key)}`);
+      if (!(key in state.chats)) state.chats[key] = saved.messages;
+    } catch (e) { state.chats[key] = []; }
+  }
+  if (!$("#tutor").classList.contains("hidden")) renderTutor();
+}
+function persistChat(key) {
+  fetch(`/api/chats/${encodeURIComponent(key)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages: chat(key) }),
+  }).catch(() => {});
+}
+
 function openTutor(prefill) {
   $("#tutor").classList.remove("hidden");
   renderTutor();
@@ -163,17 +189,21 @@ async function askTutor(text, { context = null, mode = "tutor" } = {}) {
   messages.push(reply);
   renderTutor();
   const box = $("#tutorLog").lastElementChild;
+  const key = state.chatKey;
   await streamTutor({ mode, messages: messages.slice(0, -1), lessonId: state.lesson?.id, context }, (t) => {
     reply.content = t;
-    renderMarkdown(t, box);
-    $("#tutorLog").scrollTop = $("#tutorLog").scrollHeight;
+    if (state.chatKey === key) {
+      renderMarkdown(t, box);
+      $("#tutorLog").scrollTop = $("#tutorLog").scrollHeight;
+    }
   });
+  persistChat(key);
 }
 
 function wireTutor() {
   $("#tutorToggle").onclick = () => $("#tutor").classList.contains("hidden") ? openTutor() : $("#tutor").classList.add("hidden");
   $("#tutorClose").onclick = () => $("#tutor").classList.add("hidden");
-  $("#tutorClear").onclick = () => { state.chats[state.chatKey] = []; renderTutor(); };
+  $("#tutorClear").onclick = () => { state.chats[state.chatKey] = []; persistChat(state.chatKey); renderTutor(); };
   $("#tutorForm").onsubmit = (e) => {
     e.preventDefault();
     const text = $("#tutorInput").value.trim();
@@ -208,16 +238,22 @@ function renderSidebar() {
 // ---------- Dashboard ----------
 function allLessons() { return state.curriculum.flatMap((t) => t.lessons); }
 
-function renderDashboard() {
-  state.lesson = null; state.chatKey = "general"; renderSidebar();
+async function renderDashboard() {
+  state.lesson = null; renderSidebar();
+  setChatKey("general");
+  let stats = null;
+  try { stats = await api("/api/stats"); } catch (e) { /* show the page without stats */ }
   const lessons = allLessons();
   const done = lessons.filter((l) => lessonDone(l.id)).length;
-  const exercisesPassed = Object.values(state.progress.exercises).filter((e) => e && e.passed).length;
   const next = lessons.find((l) => !lessonDone(l.id));
   const last = state.progress.last_lesson && lessons.find((l) => l.id === state.progress.last_lesson);
   const target = last && !lessonDone(last.id) ? last : next;
   const pct = lessons.length ? Math.round((done / lessons.length) * 100) : 0;
+  const t = stats?.totals;
+  const quizPct = t && t.quiz_answered ? Math.round((t.quiz_correct / t.quiz_answered) * 100) : null;
+  const wrong = t ? t.quiz_answered - t.quiz_correct : 0;
 
+  const tile = (label, value, extra) => el("div", {}, el("div", { class: "muted small" }, label), el("div", { class: "stat" }, value), extra || "");
   const main = $("#main");
   main.innerHTML = "";
   const inner = el("div", { class: "inner" });
@@ -227,19 +263,26 @@ function renderDashboard() {
     !state.tutorReady ? el("div", { class: "notice" }, "The AI tutor is off. Add your ANTHROPIC_API_KEY to the .env file, then restart the app.") : "",
     el("div", { class: "card" },
       el("div", { class: "grid" },
-        el("div", {}, el("div", { class: "muted small" }, "LESSONS DONE"), el("div", { class: "stat" }, `${done} / ${lessons.length}`),
-          el("div", { class: "bar" }, el("i", { style: `width:${pct}%` }))),
-        el("div", {}, el("div", { class: "muted small" }, "EXERCISES PASSED"), el("div", { class: "stat" }, exercisesPassed)),
-        el("div", {}, el("div", { class: "muted small" }, target ? "NEXT" : "STATUS"),
-          target ? el("a", { class: "btn primary", href: `#/lesson/${target.id}`, style: "display:inline-block;margin-top:8px" }, `Continue: ${target.title}`)
-                 : el("div", { class: "stat" }, "All done. Do mock interviews.")))),
+        tile("LESSONS DONE", `${done} / ${lessons.length}`, el("div", { class: "bar" }, el("i", { style: `width:${pct}%` }))),
+        tile("EXERCISES PASSED", t ? `${t.exercises_passed} / ${t.exercises}` : "–"),
+        tile("STUDY STREAK", stats ? `${stats.streak} day${stats.streak === 1 ? "" : "s"}` : "–",
+          el("div", { class: "muted small" }, stats ? `${stats.active_days} study days in total` : "")),
+        tile("QUIZ ACCURACY", quizPct === null ? "–" : `${quizPct}%`,
+          wrong > 0 ? el("a", { href: "#/review", class: "small" }, `Review ${wrong} wrong answer${wrong === 1 ? "" : "s"} →`) : "")),
+      el("div", { class: "toolbar", style: "margin-top:16px" },
+        target ? el("a", { class: "btn primary", href: `#/lesson/${target.id}` }, `Continue: ${target.title}`)
+               : el("span", { class: "muted" }, "All lessons done. Do mock interviews."),
+        el("a", { class: "btn", href: "#/drill" }, "Timed drill (20 min)"),
+        el("a", { class: "btn", href: "#/review" }, "Review queue"))),
   );
   for (const track of state.curriculum) {
     const d = track.lessons.filter((l) => lessonDone(l.id)).length;
+    const ts = stats?.tracks.find((x) => x.id === track.id);
     const mins = track.lessons.reduce((a, l) => a + l.minutes, 0);
+    const meta = `${d}/${track.lessons.length} lessons` + (ts && ts.exercises ? ` · ${ts.exercises_passed}/${ts.exercises} exercises` : "") + ` · about ${Math.round(mins / 60)}h`;
     const card = el("div", { class: "card" },
       el("div", { style: "display:flex;justify-content:space-between;gap:12px" },
-        el("strong", {}, track.title), el("span", { class: "muted small" }, `${d}/${track.lessons.length} · about ${Math.round(mins / 60)}h reading + practice`)),
+        el("strong", {}, track.title), el("span", { class: "muted small" }, meta)),
       el("div", { class: "bar", style: "margin:8px 0" }, el("i", { style: `width:${Math.round((d / track.lessons.length) * 100)}%` })));
     const desc = el("div", { class: "muted small" });
     renderMarkdown(track.description, desc);
@@ -253,10 +296,9 @@ function renderDashboard() {
 async function renderLesson(id) {
   const lesson = await api(`/api/lesson/${id}`);
   state.lesson = lesson;
-  state.chatKey = id;
   saveProgress("last_lesson", null, id);
   renderSidebar();
-  if (!$("#tutor").classList.contains("hidden")) renderTutor();
+  setChatKey(id);
 
   const main = $("#main");
   main.innerHTML = "";
@@ -285,7 +327,9 @@ async function renderLesson(id) {
   article.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
 }
 
-function exerciseWidget(block) {
+// opts.fresh: start from the starter code (drill mode), not the saved code.
+// opts.onCheck(result): called after each test run.
+function exerciseWidget(block, opts = {}) {
   const saved = state.progress.exercises[block.id];
   const status = el("span", { class: "state" }, saved?.passed ? "✓ passed" : "");
   const prompt = el("div");
@@ -296,7 +340,7 @@ function exerciseWidget(block) {
   const body = el("div", { class: "block-body" }, prompt, editorHost);
   const card = el("div", { class: "block-card" },
     el("div", { class: "block-head" }, el("span", { class: "tag" }, "Exercise"), block.title, status), body);
-  const editor = makeEditor(editorHost, saved?.code || block.starter || "");
+  const editor = makeEditor(editorHost, (!opts.fresh && saved?.code) || block.starter || "");
   let lastResult = null;
 
   const run = async (withTests) => {
@@ -309,7 +353,9 @@ function exerciseWidget(block) {
       banner.className = `pass-banner ${result.ok ? "ok" : "bad"}`;
       banner.textContent = result.ok ? "All tests pass. Well done." : "Not yet. Read the first ✗ line, fix it, and try again.";
       if (result.ok) status.textContent = "✓ passed";
-      await saveProgress("exercises", block.id, { passed: result.ok || !!saved?.passed, code: editor.getValue() });
+      const before = state.progress.exercises[block.id];
+      await saveProgress("exercises", block.id, { passed: result.ok || !!before?.passed, code: editor.getValue() });
+      if (opts.onCheck) opts.onCheck(result);
     }
   };
   const context = () => `Exercise: ${block.title}\n${block.prompt}\n\nTests:\n${block.tests}\n\nMy code:\n${editor.getValue()}\n\nLast result:\n${lastResult ? JSON.stringify(lastResult, null, 1) : "not run yet"}`;
@@ -339,8 +385,8 @@ function quizWidget(block) {
     const key = `${block.id}/${qi}`;
     const prev = state.progress.quizzes[key];
     const explain = el("div", { class: "explain" });
-    const box = el("div", { class: "quiz-q" }, el("div", {}, el("strong", {}, `${qi + 1}. `), q.question));
-    const buttons = q.options.map((opt, oi) => el("button", { class: "btn opt" }, opt));
+    const box = el("div", { class: "quiz-q" }, el("div", {}, el("strong", {}, `${qi + 1}. `), inlineMd(q.question)));
+    const buttons = q.options.map((opt) => el("button", { class: "btn opt" }, inlineMd(opt)));
     const reveal = (choice) => {
       buttons.forEach((b, bi) => {
         b.classList.toggle("right", bi === q.answer);
@@ -391,7 +437,7 @@ print("sorted:", sorted(nums))
 print("total:", sum(nums))
 `;
 function renderPlayground() {
-  state.lesson = null; state.chatKey = "playground"; renderSidebar();
+  state.lesson = null; renderSidebar(); setChatKey("playground");
   const main = $("#main");
   main.innerHTML = "";
   const host = el("div");
@@ -413,6 +459,103 @@ function renderPlayground() {
     el("button", { class: "btn primary", onclick: run }, "Run (Ctrl+Enter)"),
     el("button", { class: "btn", onclick: () => askTutor("Explain what this code does, line by line, in simple words.", { context: editor.getValue() }) }, "Explain this code"),
     el("button", { class: "btn", onclick: () => askTutor("Review this code and suggest improvements.", { context: editor.getValue(), mode: "review" }) }, "Review")), output);
+}
+
+// ---------- Review queue: quiz questions you got wrong ----------
+async function renderReview() {
+  state.lesson = null; renderSidebar(); setChatKey("review");
+  const { items } = await api("/api/review");
+  const main = $("#main");
+  main.innerHTML = "";
+  const inner = el("div", { class: "inner" }, el("h1", {}, "Review queue"),
+    el("p", { class: "muted" }, "Quiz questions you answered wrongly. Answer them again. A correct answer removes the question from the queue. If you get one wrong twice, reread the lesson."));
+  if (!items.length) inner.append(el("div", { class: "card" }, "Nothing to review. Well done. Answer more quizzes in the lessons."));
+  const count = el("p", { class: "muted small" }, `${items.length} question${items.length === 1 ? "" : "s"} to review`);
+  if (items.length) inner.append(count);
+  let left = items.length;
+  for (const item of items) {
+    const explain = el("div", { class: "explain" });
+    const card = el("div", { class: "card quiz-q" },
+      el("div", { class: "muted small" }, "From: ", el("a", { href: `#/lesson/${item.lesson_id}` }, item.lesson_title)),
+      el("div", { style: "margin:6px 0" }, el("strong", {}, inlineMd(item.question))));
+    const buttons = item.options.map((opt) => el("button", { class: "btn opt" }, inlineMd(opt)));
+    buttons.forEach((b, oi) => b.onclick = async () => {
+      const right = oi === item.answer;
+      buttons.forEach((x, xi) => {
+        x.classList.toggle("right", xi === item.answer);
+        x.classList.toggle("wrong", xi === oi && !right);
+        x.disabled = true;
+      });
+      explain.textContent = (right ? "Correct. Removed from the queue. " : "Not correct. It stays in the queue. ") + (item.explanation || "");
+      await saveProgress("quizzes", item.key, right);
+      if (right) { left -= 1; count.textContent = `${left} question${left === 1 ? "" : "s"} to review`; }
+    });
+    card.append(...buttons, explain);
+    inner.append(card);
+  }
+  main.append(inner);
+}
+
+// ---------- Timed drill: a random exercise from lessons you have studied ----------
+const lessonCache = {};
+async function getLesson(id) { return (lessonCache[id] ||= await api(`/api/lesson/${id}`)); }
+let lastDrillId = null;
+
+async function renderDrill() {
+  state.lesson = null; renderSidebar(); setChatKey("drill");
+  const main = $("#main");
+  main.innerHTML = "";
+  const inner = el("div", { class: "inner" }, el("h1", {}, "Timed drill"),
+    el("p", { class: "muted" }, "A random exercise from lessons you have completed or practised, with an empty editor. Solve it from memory in 20 minutes, talking aloud. This is spaced repetition plus interview pressure."));
+  main.append(inner);
+
+  const studied = allLessons().filter((l) =>
+    lessonDone(l.id) || Object.entries(state.progress.exercises).some(([k, v]) => k.startsWith(l.id + "#") && v?.passed));
+  if (!studied.length) {
+    inner.append(el("div", { class: "card" }, "Complete a lesson or pass an exercise first. Then come back for drills."));
+    return;
+  }
+  const pool = [];
+  for (const l of studied) {
+    const data = await getLesson(l.id);
+    data.blocks.filter((b) => b.kind === "exercise").forEach((b) => pool.push({ lesson: data, block: b }));
+  }
+  if (!pool.length) {
+    inner.append(el("div", { class: "card" }, "Your completed lessons have no coding exercises yet. Complete a track 1 lesson."));
+    return;
+  }
+  const choices = pool.length > 1 ? pool.filter((p) => p.block.id !== lastDrillId) : pool;
+  const pick = choices[Math.floor(Math.random() * choices.length)];
+  lastDrillId = pick.block.id;
+
+  const LIMIT = 20 * 60;
+  const startedAt = Date.now();
+  const timer = el("span", { class: "timer" }, "20:00");
+  let finished = false;
+  const tick = setInterval(() => {
+    if (!document.body.contains(timer) || finished) return clearInterval(tick);
+    const left = LIMIT - Math.floor((Date.now() - startedAt) / 1000);
+    timer.textContent = left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Time up";
+  }, 1000);
+  const result = el("div");
+  inner.append(
+    el("div", { style: "display:flex;gap:12px;align-items:center;flex-wrap:wrap" },
+      timer,
+      el("span", { class: "muted small", style: "flex:1" }, "From: ", el("a", { href: `#/lesson/${pick.lesson.id}` }, pick.lesson.title)),
+      el("button", { class: "btn", onclick: () => renderDrill() }, "New drill")),
+    exerciseWidget(pick.block, {
+      fresh: true,
+      onCheck: (r) => {
+        if (!r.ok || finished) return;
+        finished = true;
+        const secs = Math.floor((Date.now() - startedAt) / 1000);
+        const inTime = secs <= LIMIT;
+        result.className = `pass-banner ${inTime ? "ok" : "bad"}`;
+        result.textContent = `Solved in ${Math.floor(secs / 60)} min ${secs % 60} s` + (inTime ? " — inside the 20-minute limit." : " — over the limit. Drill this pattern again.");
+      },
+    }),
+    result);
+  inner.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
 }
 
 // ---------- Mock interviews ----------
@@ -518,12 +661,15 @@ function renderMock(mode) {
 // ---------- Router ----------
 async function route() {
   const hash = location.hash.replace(/^#\/?/, "");
+  $("#main").scrollTop = 0;
   try {
     if (hash.startsWith("lesson/")) await renderLesson(decodeURIComponent(hash.slice(7)));
     else if (hash === "playground") renderPlayground();
+    else if (hash === "review") await renderReview();
+    else if (hash === "drill") await renderDrill();
     else if (hash.startsWith("mock/")) renderMock(hash.slice(5));
     else if (hash === "mock") renderMockMenu();
-    else renderDashboard();
+    else await renderDashboard();
   } catch (err) {
     $("#main").innerHTML = "";
     $("#main").append(el("div", { class: "inner" }, el("div", { class: "notice" }, `Error: ${err.message}`)));
