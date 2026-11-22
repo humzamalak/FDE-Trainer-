@@ -1,0 +1,58 @@
+# How to use this app
+<!-- minutes: 15 -->
+
+This app takes you from "I cannot code" to "ready for a Forward Deployed Engineer (FDE) interview". It has 8 tracks. Do them in order.
+
+| Track | What you learn | Weeks (at ~10 h/week) |
+|---|---|---|
+| 0. Start here | Study method, tools | 1 |
+| 1. Python from zero | Write real programs | 2–7 |
+| 2. Maths for FDE | The maths interviews use | 5–8 (in parallel) |
+| 3. Coding interview patterns | Solve LeetCode-style problems | 7–12 |
+| 4. LLM engineering | Build AI applications | 10–15 |
+| 5. System design | Design customer systems | 14–18 |
+| 6. Customer skills | Case rounds, STAR stories | 17–21 |
+| 7. Interview ready | The loop, mocks, applications | 21–24 |
+
+## The parts of each lesson
+
+- **Text and examples.** Read them. Type the examples into the Playground. Do not copy and paste.
+- **Exercises.** Write code in the editor. Click **Check** to run the tests. The tests tell you what is wrong.
+- **Quizzes.** Fast checks. If you get one wrong, read the explanation.
+- **Written tasks.** Free-text answers. The AI tutor grades them against a rubric.
+- **Ask tutor.** The tutor knows which lesson you are on. Ask it to explain again, give an AWS analogy, or give more practice.
+
+## Rules that make you improve faster
+
+1. **Struggle for 15–20 minutes before you look at a solution.** The struggle is where you learn. Use **Hint** first.
+2. **If you look at a solution, close it and write it again from memory the next day.**
+3. **Type everything.** Your hands must learn the syntax.
+4. **Explain out loud.** In interviews you must talk while you code. Practise this from week 1.
+5. **Small daily practice beats one long session.** 45 minutes every day is better than 5 hours on Sunday.
+6. **Mark a lesson complete only when you can do its exercises without help.**
+
+## How to use the tutor well
+
+Good questions:
+
+- "Explain list comprehensions with an example about AWS instances."
+- "My code fails the second test. Why?" (use the **Explain my error** button)
+- "Give me 3 more exercises like this one, without solutions."
+- "Quiz me on this lesson. One question at a time."
+
+Bad questions:
+
+- "Write the solution for me." You will not learn, and the interview will expose it.
+
+:::quiz
+Q: You are stuck on an exercise for 5 minutes. What should you do first?
+- [ ] Click "Show solution"
+- [x] Keep trying, then click "Hint" if you are still stuck after 15–20 minutes
+- [ ] Skip the lesson
+> Struggle is where learning happens. A hint keeps you thinking; a full solution stops you thinking.
+Q: Which study pattern works best?
+- [ ] One 6-hour session each weekend
+- [x] Short daily sessions plus one longer weekly session
+- [ ] Only reading, no coding
+> Spaced, frequent practice builds memory faster than one long session.
+:::

@@ -1,0 +1,9 @@
+Copy this file to learner_profile.md (git ignores it) and describe yourself. The tutor reads it.
+
+- Name: ...
+- Current role: ...
+- Strong at: ... (e.g. AWS, Kubernetes, Ansible, Slurm HPC, Trusted Research Environments)
+- Weak at: application coding (beginner level)
+- Goal: Forward Deployed Engineer role
+- Projects I can use as examples: ...
+- How I like explanations: simplified technical English, short and direct
