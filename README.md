@@ -93,6 +93,10 @@ cd fde-trainer
 
 ### Step 5 — First run
 
+**Easiest:** double-click `start.cmd` in the `fde-trainer` folder.
+
+Or, in PowerShell:
+
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run.ps1
 ```
@@ -121,6 +125,8 @@ Copy-Item learner_profile.example.md learner_profile.md
 Edit `learner_profile.md`: your role, what you are good at, what you are weak at, your goal. The tutor uses this to choose examples and the right level. Git ignores this file.
 
 ### Step 8 — Run the app
+
+Double-click `start.cmd`, or:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\run.ps1
@@ -325,6 +331,7 @@ Apply to less important companies first, to practise real interviews.
 
 ```
 fde-trainer/
+├── start.cmd                    Windows: double-click to start (calls run.ps1)
 ├── run.ps1                      Windows start script (setup on first run)
 ├── run.sh                       macOS/Linux start script
 ├── requirements.txt             Python packages
