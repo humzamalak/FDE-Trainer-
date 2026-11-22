@@ -39,9 +39,9 @@ git add . && git commit -m "Solve two-sum with a hash map"
 
 Commit small and often. Your GitHub history is part of your portfolio.
 
-## 5. A LeetCode account
+## 5. Practice inside this app
 
-Create a free account on leetcode.com and on neetcode.io. Track 3 sends you there for extra practice.
+You do not need other practice sites. Every lesson ends with **Practise this lesson**: the tutor writes new exercises for the lesson (easier, same or harder), and the app tests them before you see them. **Drill** gives you random exercises against a 20-minute timer. **Review** brings back quiz questions you got wrong.
 
 :::exercise Your first program
 In Python, `print()` shows text, and `=` stores a value in a variable.

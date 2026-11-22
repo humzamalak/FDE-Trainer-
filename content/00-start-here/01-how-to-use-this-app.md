@@ -16,11 +16,13 @@ This app takes you from "I cannot code" to "ready for a Forward Deployed Enginee
 
 ## The parts of each lesson
 
-- **Text and examples.** Read them. Type the examples into the Playground. Do not copy and paste.
+- **Text and "Try it" examples.** Every Python example is live: edit it and press **Run**. Change values, break it on purpose, and see what happens. **Explain this** and **Give me a challenge** ask the tutor about the example.
 - **Exercises.** Write code in the editor. Click **Check** to run the tests. The tests tell you what is wrong.
 - **Quizzes.** Fast checks. If you get one wrong, read the explanation.
 - **Written tasks.** Free-text answers. The AI tutor grades them against a rubric.
+- **Practise this lesson** (at the end of every lesson): unlimited new exercises (easier, same, harder) that the app tests before you see them, a 5-question quiz, flashcards, and "explain it back", where the tutor grades your own explanation.
 - **Ask tutor.** The tutor knows which lesson you are on. Ask it to explain again, give an AWS analogy, or give more practice.
+- **Drill and Review** (top menu): timed exercises from memory, and the quiz questions you got wrong.
 
 ## Rules that make you improve faster
 

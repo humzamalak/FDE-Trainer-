@@ -90,3 +90,9 @@ textarea.answer{width:100%;min-height:160px;font:inherit;padding:10px;border-rad
 .timer{font-family:"Cascadia Code",Consolas,monospace;font-size:20px}
 .notice{padding:10px 14px;border-radius:8px;background:var(--bad-soft);color:var(--bad);margin-bottom:16px}
 @media (max-width:1000px){.sidebar{display:none}.tutor{position:fixed;right:0;top:52px;bottom:0;width:100%;max-width:440px;z-index:6}.split{grid-template-columns:1fr;height:auto}}
+.try-card{border:1px solid var(--line);border-left:3px solid var(--accent);border-radius:10px;padding:10px 12px;margin:14px 0;background:var(--panel)}
+.try-head{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.try-head .tag,.block-head .tag{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);font-weight:700}
+.practice{margin-top:40px;padding-top:12px;border-top:2px solid var(--accent)}
+.practice .card{margin-top:12px}
+.select{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}

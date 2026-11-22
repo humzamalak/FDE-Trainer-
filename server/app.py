@@ -7,6 +7,7 @@ Then open http://127.0.0.1:8765
 from __future__ import annotations
 
 import json
+import mimetypes
 import threading
 from datetime import date
 from pathlib import Path
@@ -18,8 +19,11 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from server.content import Content
+from server.generate import generate_exercise, validate_exercise
 from server.stats import compute_stats, review_items
 from server.tutor import MODES, api_key_present, stream_reply
+
+mimetypes.add_type("application/wasm", ".wasm")  # Pyodide loads faster with the right type
 
 ROOT = Path(__file__).resolve().parent.parent
 load_dotenv(ROOT / ".env")
@@ -28,6 +32,7 @@ CONTENT = Content(ROOT / "content")
 DATA_DIR = ROOT / "data"
 PROGRESS_FILE = DATA_DIR / "progress.json"
 CHATS_FILE = DATA_DIR / "chats.json"
+GENERATED_FILE = DATA_DIR / "generated.json"
 _lock = threading.Lock()
 
 app = FastAPI(title="FDE Trainer")
@@ -163,6 +168,77 @@ def save_chat(key: str, body: ChatSave) -> dict:
             chats.pop(key, None)
         write_json(CHATS_FILE, chats)
     return {"saved": len(clean)}
+
+
+# ---------- AI-generated practice exercises (data/generated.json) ----------
+
+class GenerateRequest(BaseModel):
+    lesson_id: str | None = None
+    level: str = "same"
+    feedback: str | None = None
+
+
+def read_generated() -> dict:
+    if not GENERATED_FILE.exists():
+        return {}
+    try:
+        return json.loads(GENERATED_FILE.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+@app.post("/api/generate")
+def generate(req: GenerateRequest) -> dict:
+    lesson_data = CONTENT.lesson(req.lesson_id) if req.lesson_id else None
+    with _lock:
+        avoid = [e["title"] for e in read_generated().get(req.lesson_id or "general", [])]
+    if lesson_data:
+        avoid += [b["title"] for b in lesson_data["blocks"] if b["kind"] == "exercise"]
+    return generate_exercise(lesson_data, req.level, avoid, req.feedback)
+
+
+class SaveGenerated(BaseModel):
+    lesson_id: str
+    exercise: dict
+
+
+@app.post("/api/generated")
+def save_generated(body: SaveGenerated) -> dict:
+    problems = validate_exercise(body.exercise)
+    if problems:
+        raise HTTPException(400, "; ".join(problems))
+    with _lock:
+        data = read_generated()
+        items = data.setdefault(body.lesson_id, [])
+        n = max([int(e["id"].rsplit("-", 1)[1]) for e in items] or [0]) + 1
+        item = {
+            "id": f"{body.lesson_id}#gen-{n}",
+            "kind": "exercise",
+            "generated": True,
+            **{k: str(body.exercise.get(k, "")) for k in ("title", "prompt", "starter", "tests", "solution", "hint")},
+        }
+        items.append(item)
+        write_json(GENERATED_FILE, data)
+    return item
+
+
+@app.get("/api/generated")
+def list_generated(lesson_id: str | None = None) -> dict:
+    with _lock:
+        data = read_generated()
+    if lesson_id is not None:
+        return {"items": data.get(lesson_id, [])}
+    return {"items": [e for items in data.values() for e in items]}
+
+
+@app.delete("/api/generated")
+def delete_generated(id: str) -> dict:
+    with _lock:
+        data = read_generated()
+        for lesson_id, items in data.items():
+            data[lesson_id] = [e for e in items if e["id"] != id]
+        write_json(GENERATED_FILE, data)
+    return {"deleted": id}
 
 
 # ---------- AI tutor ----------

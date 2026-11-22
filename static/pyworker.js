@@ -1,6 +1,6 @@
 // Runs Python in the browser with Pyodide, inside a Web Worker.
 // A worker can be stopped if your code loops forever, so the page never freezes.
-importScripts("https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js");
+importScripts("/static/vendor/pyodide/pyodide.js");  // bundled locally: no internet needed
 
 const HARNESS = `
 import ast, io, json, sys, traceback
@@ -23,12 +23,33 @@ def _describe_failure(node, ns):
             pass
     return ""
 
-def _run(code, tests):
+def _run_setup(setup, ns):
+    # Earlier examples in the lesson: run each statement quietly, ignore errors.
+    if not setup.strip():
+        return
+    try:
+        tree = ast.parse(setup)
+    except SyntaxError:
+        return
+    sink = io.StringIO()
+    old = sys.stdout, sys.stderr
+    sys.stdout = sys.stderr = sink
+    try:
+        for node in tree.body:
+            try:
+                exec(compile(ast.Module([node], []), "setup.py", "exec"), ns)
+            except BaseException:
+                pass
+    finally:
+        sys.stdout, sys.stderr = old
+
+def _run(code, tests, setup=""):
     out = io.StringIO()
     old = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = out
     res = {"ok": False, "error": None, "tests": [], "stdout": ""}
     ns = {"__name__": "__main__"}
+    _run_setup(setup, ns)
     try:
         try:
             exec(compile(code, "your_code.py", "exec"), ns)
@@ -57,7 +78,7 @@ def _run(code, tests):
 
 let pyodide = null;
 const ready = (async () => {
-  pyodide = await loadPyodide();
+  pyodide = await loadPyodide({ indexURL: "/static/vendor/pyodide/" });
   pyodide.setStdin({ stdin: () => null });
   pyodide.runPython(HARNESS);
   postMessage({ type: "ready" });
@@ -65,11 +86,12 @@ const ready = (async () => {
 
 onmessage = async (event) => {
   await ready;
-  const { id, code, tests } = event.data;
+  const { id, code, tests, setup } = event.data;
   try {
     pyodide.globals.set("_code", code);
     pyodide.globals.set("_tests", tests || "");
-    const result = JSON.parse(pyodide.runPython("_run(_code, _tests)"));
+    pyodide.globals.set("_setup", setup || "");
+    const result = JSON.parse(pyodide.runPython("_run(_code, _tests, _setup)"));
     postMessage({ type: "result", id, result });
   } catch (err) {
     postMessage({ type: "result", id, result: { ok: false, error: String(err), tests: [], stdout: "" } });

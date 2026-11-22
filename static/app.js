@@ -93,7 +93,9 @@ const runner = {
       };
     });
   },
-  async run(code, tests = "", timeoutMs = 8000) {
+  // opts.setup: code run quietly first (earlier examples in a lesson); opts.timeoutMs.
+  async run(code, tests = "", opts = {}) {
+    const timeoutMs = opts.timeoutMs || 8000;
     if (!this.worker) this.start();
     await this.ready;
     const id = this.nextId++;
@@ -104,7 +106,7 @@ const runner = {
         resolve({ ok: false, error: `Time limit (${timeoutMs / 1000}s) reached. Do you have an infinite loop?`, tests: [], stdout: "" });
       }, timeoutMs);
       this.pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
-      this.worker.postMessage({ id, code, tests });
+      this.worker.postMessage({ id, code, tests, setup: opts.setup || "" });
     });
   },
 };
@@ -305,12 +307,15 @@ async function renderLesson(id) {
   main.scrollTop = 0;
   const article = el("article", { class: "inner lesson" });
   renderMarkdown(lesson.markdown, article);
+  makeExamplesRunnable(article);
   article.querySelectorAll("[data-block]").forEach((slot) => {
     const block = lesson.blocks[+slot.dataset.block];
     const widget = block.kind === "exercise" ? exerciseWidget(block)
       : block.kind === "quiz" ? quizWidget(block) : writtenWidget(block);
     slot.replaceWith(widget);
   });
+
+  article.append(practicePanel(lesson));
 
   const lessons = allLessons();
   const i = lessons.findIndex((l) => l.id === id);
@@ -339,7 +344,8 @@ function exerciseWidget(block, opts = {}) {
   const banner = el("div");
   const body = el("div", { class: "block-body" }, prompt, editorHost);
   const card = el("div", { class: "block-card" },
-    el("div", { class: "block-head" }, el("span", { class: "tag" }, "Exercise"), block.title, status), body);
+    el("div", { class: "block-head" }, el("span", { class: "tag" }, block.generated ? "AI exercise" : "Exercise"), block.title, status,
+      opts.onDelete ? el("button", { class: "btn small", title: "Delete this exercise", onclick: () => opts.onDelete(card) }, "Delete") : ""), body);
   const editor = makeEditor(editorHost, (!opts.fresh && saved?.code) || block.starter || "");
   let lastResult = null;
 
@@ -359,6 +365,7 @@ function exerciseWidget(block, opts = {}) {
     }
   };
   const context = () => `Exercise: ${block.title}\n${block.prompt}\n\nTests:\n${block.tests}\n\nMy code:\n${editor.getValue()}\n\nLast result:\n${lastResult ? JSON.stringify(lastResult, null, 1) : "not run yet"}`;
+  const hintBox = el("div", { class: "explain", style: "display:none" });
   const solution = el("div", { style: "display:none" });
   if (block.solution) renderMarkdown("```python\n" + block.solution + "\n```", solution);
 
@@ -366,7 +373,10 @@ function exerciseWidget(block, opts = {}) {
     el("div", { class: "toolbar" },
       el("button", { class: "btn", onclick: () => run(false) }, "Run"),
       el("button", { class: "btn primary", onclick: () => run(true) }, "Check (run tests)"),
-      el("button", { class: "btn", onclick: () => askTutor("Give me one small hint for this exercise. Do not give the solution.", { context: context() }) }, "Hint"),
+      el("button", { class: "btn", onclick: () => {
+        if (block.hint && !hintBox.textContent) { hintBox.textContent = "Hint: " + block.hint; hintBox.style.display = ""; return; }
+        askTutor("Give me one small hint for this exercise. Do not give the solution.", { context: context() });
+      } }, "Hint"),
       el("button", { class: "btn", onclick: () => askTutor("Explain my error in simple words and tell me where to look.", { context: context() }) }, "Explain my error"),
       el("button", { class: "btn", onclick: () => askTutor("Review my code. Is it correct, readable and efficient? What would an interviewer say?", { context: context(), mode: "review" }) }, "Review my code"),
       el("button", { class: "btn", onclick: () => { editor.setValue(block.starter || ""); } }, "Reset"),
@@ -375,7 +385,7 @@ function exerciseWidget(block, opts = {}) {
         solution.style.display = show ? "" : "none";
         e.target.textContent = show ? "Hide solution" : "Show solution";
       } }, "Show solution") : ""),
-    output, banner, solution);
+    hintBox, output, banner, solution);
   return card;
 }
 
@@ -461,6 +471,158 @@ function renderPlayground() {
     el("button", { class: "btn", onclick: () => askTutor("Review this code and suggest improvements.", { context: editor.getValue(), mode: "review" }) }, "Review")), output);
 }
 
+// ---------- Runnable examples: every Python example in a lesson can be edited and run ----------
+// Examples that need packages the browser does not have stay read-only.
+const NEEDS_MACHINE = /^\s*(?:import|from)\s+(anthropic|openai|requests|httpx|fastapi|pydantic|uvicorn|pytest|mcp|numpy|pandas)\b/m;
+
+function makeExamplesRunnable(article) {
+  const blocks = [...article.querySelectorAll("pre > code.language-python")];
+  const earlier = [];   // original code of earlier runnable examples, run quietly first (notebook style)
+  blocks.forEach((codeEl) => {
+    const original = codeEl.textContent.replace(/\n$/, "");
+    const pre = codeEl.parentElement;
+    const needs = original.match(NEEDS_MACHINE);
+    if (needs) {
+      pre.before(el("div", { class: "muted small", style: "margin-top:12px" },
+        `Read-only example: it uses "${needs[1]}", which runs on your own machine, not in the browser.`));
+      return;
+    }
+    const setup = earlier.join("\n\n");
+    earlier.push(original);
+    const host = el("div");
+    const output = el("div", { class: "output" });
+    const card = el("div", { class: "try-card" },
+      el("div", { class: "try-head" }, el("span", { class: "tag" }, "Try it"),
+        el("span", { class: "muted small" }, "Edit the code and run it. Earlier examples on this page run first.")),
+      host);
+    pre.replaceWith(card);
+    const editor = makeEditor(host, original);
+    const run = async () => {
+      output.classList.add("show");
+      output.textContent = runner.worker ? "Running…" : "Loading Python (first run takes a few seconds)…";
+      showResult(output, await runner.run(editor.getValue(), "", { setup }), false);
+    };
+    editor.setOption("extraKeys", { Tab: (cm) => cm.replaceSelection("    "), "Ctrl-Enter": run, "Cmd-Enter": run });
+    card.append(el("div", { class: "toolbar" },
+      el("button", { class: "btn primary", onclick: run }, "Run (Ctrl+Enter)"),
+      el("button", { class: "btn", onclick: () => editor.setValue(original) }, "Reset"),
+      el("button", { class: "btn", onclick: () => askTutor("Explain this example line by line, in simple words. Then ask me one question to check I understood.", { context: editor.getValue() }) }, "Explain this"),
+      el("button", { class: "btn", onclick: () => askTutor("Give me a small change to make to this example, and tell me what output to expect. Do not show the changed code.", { context: editor.getValue() }) }, "Give me a challenge")),
+      output);
+  });
+}
+
+// ---------- Practice panel: at the end of every lesson ----------
+function practicePanel(lesson) {
+  const panel = el("section", { class: "practice" }, el("h2", {}, "Practise this lesson"));
+  const needKey = !state.tutorReady
+    ? el("div", { class: "notice" }, "The AI practice tools need your API key in .env (then restart the app). The runnable examples and exercises above work without it.")
+    : "";
+
+  // 1. New exercises, generated for this lesson and checked in the browser before you see them.
+  const genStatus = el("div", { class: "muted small" });
+  const genList = el("div");
+  const genButtons = ["easier", "same", "harder"].map((level) =>
+    el("button", { class: level === "same" ? "btn primary" : "btn", disabled: !state.tutorReady,
+      onclick: () => generateFor(lesson, level, genStatus, genList, genButtons) },
+      level === "same" ? "New exercise" : level === "easier" ? "Easier exercise" : "Harder exercise"));
+  const isCodingLesson = lesson.blocks.some((b) => b.kind === "exercise") || /```python/.test(lesson.raw);
+  if (!isCodingLesson) {
+    panel.append(el("div", { class: "card" },
+      el("strong", {}, "1. New scenario"),
+      el("p", { class: "muted small" }, "This lesson is about thinking and communication, not code. The tutor gives you a fresh realistic scenario in the tutor panel. Answer it there; it gives feedback and a model answer."),
+      needKey,
+      el("div", { class: "toolbar" },
+        el("button", { class: "btn primary", disabled: !state.tutorReady, onclick: () => askTutor("Give me ONE new realistic practice scenario for this lesson, like an interviewer would. Wait for my answer. Then grade it against what this lesson teaches, list what I missed, and show a strong model answer.") }, "New scenario"),
+        el("button", { class: "btn", disabled: !state.tutorReady, onclick: () => askTutor("Give me ONE harder, more ambiguous scenario for this lesson, with a difficult customer or stakeholder. Push back on my answer twice before you grade it.") }, "Harder scenario"))));
+  } else panel.append(el("div", { class: "card" },
+    el("strong", {}, "1. Unlimited exercises"),
+    el("p", { class: "muted small" }, "The tutor writes a new exercise for this lesson. The app runs the solution against the tests first, so every exercise you get works. Your exercises are saved here and appear in Drill."),
+    needKey, el("div", { class: "toolbar" }, ...genButtons), genStatus, genList));
+  if (isCodingLesson) api(`/api/generated?lesson_id=${encodeURIComponent(lesson.id)}`).then(({ items }) => {
+    items.slice().reverse().forEach((ex) => genList.append(generatedWidget(ex)));
+    genList.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
+  }).catch(() => {});
+
+  // 2. Quiz me
+  panel.append(el("div", { class: "card" },
+    el("strong", {}, "2. Quiz me"),
+    el("p", { class: "muted small" }, "Five questions, one at a time, in the tutor panel: predict the output, spot the bug, explain why. Answer in the chat."),
+    el("div", { class: "toolbar" },
+      el("button", { class: "btn primary", disabled: !state.tutorReady, onclick: () => askTutor("Quiz me on this lesson. Ask 5 questions, ONE at a time, and wait for my answer each time. Mix: predict the output of a short code snippet, find the bug, explain a concept, and a small interview-style question. After each answer, say if I am right and why. After question 5, give my score and what to review.") }, "Start quiz"),
+      el("button", { class: "btn", disabled: !state.tutorReady, onclick: () => askTutor("Make 6 flashcards for this lesson. Format: **Q:** … then **A:** … Keep each answer to one or two lines.") }, "Make flashcards"))));
+
+  // 3. Explain it back (Feynman technique)
+  const key = `${lesson.id}#explain`;
+  const saved = state.progress.written[key];
+  const answer = el("textarea", { class: "answer", placeholder: "In your own words: what is the main idea of this lesson, when would you use it, and what is one mistake to avoid?" });
+  answer.value = saved?.answer || "";
+  const feedback = el("div", { class: "feedback" });
+  if (saved?.feedback) { feedback.classList.add("show"); renderMarkdown(saved.feedback, feedback); }
+  const submit = el("button", { class: "btn primary", disabled: !state.tutorReady }, "Check my explanation");
+  submit.onclick = async () => {
+    if (!answer.value.trim()) return;
+    submit.disabled = true;
+    feedback.classList.add("show");
+    feedback.textContent = "Checking…";
+    const text = await streamTutor({
+      mode: "review", lessonId: lesson.id,
+      context: "Task: the learner explains the lesson in their own words (Feynman technique).",
+      messages: [{ role: "user", content: `Grade my explanation of this lesson. Score out of 10 for accuracy, completeness of the key points, and clarity. List what I got wrong or missed. Then give a model explanation in 4 sentences.\n\nMy explanation:\n${answer.value}` }],
+    }, (t) => renderMarkdown(t, feedback));
+    submit.disabled = false;
+    saveProgress("written", key, { answer: answer.value, feedback: text });
+  };
+  panel.append(el("div", { class: "card" },
+    el("strong", {}, "3. Explain it back"),
+    el("p", { class: "muted small" }, "If you can explain it simply, you understand it. The tutor grades your explanation."),
+    answer, el("div", { class: "toolbar" }, submit), feedback));
+  return panel;
+}
+
+function generatedWidget(ex) {
+  return exerciseWidget(ex, {
+    onDelete: async (card) => {
+      await fetch(`/api/generated?id=${encodeURIComponent(ex.id)}`, { method: "DELETE" });
+      card.remove();
+    },
+  });
+}
+
+// Ask the server for an exercise, check it in Pyodide, retry once with the error, then save it.
+async function generateFor(lesson, level, status, list, buttons) {
+  buttons.forEach((b) => (b.disabled = true));
+  let feedback = null;
+  try {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      status.textContent = attempt === 1 ? "Writing a new exercise… (about 10–20 seconds)" : `Fixing the exercise (attempt ${attempt})…`;
+      const res = await api("/api/generate", { method: "POST", body: JSON.stringify({ lesson_id: lesson.id, level, feedback }) });
+      if (res.error) { status.textContent = res.error; return; }
+      const ex = res.exercise;
+      status.textContent = "Checking the exercise in Python…";
+      const good = await runner.run(ex.solution, ex.tests);
+      if (!good.ok) {
+        const firstFail = good.error || (good.tests.find((t) => !t.ok) || {}).src || "unknown";
+        feedback = `the solution does not pass the tests (${String(firstFail).slice(0, 300)})`;
+        continue;
+      }
+      const bad = await runner.run(ex.starter, ex.tests);
+      if (bad.ok) { feedback = "the starter code already passes the tests; the starter must fail"; continue; }
+      const saved = await api("/api/generated", { method: "POST", body: JSON.stringify({ lesson_id: lesson.id, exercise: ex }) });
+      const widget = generatedWidget(saved);
+      list.prepend(widget);
+      widget.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
+      status.textContent = `New exercise ready: "${saved.title}". It passed the checks.`;
+      return;
+    }
+    status.textContent = "Could not make a working exercise this time. Try again.";
+  } catch (e) {
+    status.textContent = `Error: ${e.message}`;
+  } finally {
+    buttons.forEach((b) => (b.disabled = !state.tutorReady));
+  }
+}
+
 // ---------- Review queue: quiz questions you got wrong ----------
 async function renderReview() {
   state.lesson = null; renderSidebar(); setChatKey("review");
@@ -496,32 +658,60 @@ async function renderReview() {
   main.append(inner);
 }
 
-// ---------- Timed drill: a random exercise from lessons you have studied ----------
+// ---------- Timed drill: a random exercise, solved from memory against the clock ----------
 const lessonCache = {};
 async function getLesson(id) { return (lessonCache[id] ||= await api(`/api/lesson/${id}`)); }
 let lastDrillId = null;
+
+function studiedLessons() {
+  return allLessons().filter((l) =>
+    lessonDone(l.id) || Object.entries(state.progress.exercises).some(([k, v]) => k.startsWith(l.id + "#") && v?.passed));
+}
 
 async function renderDrill() {
   state.lesson = null; renderSidebar(); setChatKey("drill");
   const main = $("#main");
   main.innerHTML = "";
   const inner = el("div", { class: "inner" }, el("h1", {}, "Timed drill"),
-    el("p", { class: "muted" }, "A random exercise from lessons you have completed or practised, with an empty editor. Solve it from memory in 20 minutes, talking aloud. This is spaced repetition plus interview pressure."));
+    el("p", { class: "muted" }, "A random exercise with an empty editor. Solve it in 20 minutes, talking aloud. This is spaced repetition plus interview pressure. Choose where the exercises come from."));
   main.append(inner);
 
-  const studied = allLessons().filter((l) =>
-    lessonDone(l.id) || Object.entries(state.progress.exercises).some(([k, v]) => k.startsWith(l.id + "#") && v?.passed));
-  if (!studied.length) {
-    inner.append(el("div", { class: "card" }, "Complete a lesson or pass an exercise first. Then come back for drills."));
-    return;
-  }
+  // Scope: studied lessons (when there are any), one track, or everything.
+  const studied = studiedLessons();
+  const scope = el("select", { class: "select" });
+  if (studied.length) scope.append(el("option", { value: "studied" }, `Lessons I studied (${studied.length})`));
+  state.curriculum.forEach((t) => {
+    if (t.lessons.length) scope.append(el("option", { value: `track:${t.id}` }, t.title));
+  });
+  scope.append(el("option", { value: "all" }, "All tracks"));
+  let saved = null;
+  try { saved = localStorage.getItem("drillScope"); } catch (e) {}
+  const options = [...scope.options].map((o) => o.value);
+  scope.value = options.includes(saved) ? saved : (studied.length ? "studied" : `track:${state.curriculum[1]?.id || state.curriculum[0].id}`);
+  const area = el("div");
+  scope.onchange = () => { try { localStorage.setItem("drillScope", scope.value); } catch (e) {} drawDrill(scope.value, area); };
+  inner.append(el("div", { class: "toolbar" }, el("label", { class: "muted small" }, "Exercises from: "), scope), area);
+  await drawDrill(scope.value, area);
+}
+
+async function drawDrill(scopeValue, area) {
+  area.innerHTML = "";
+  area.append(el("p", { class: "muted small" }, "Loading exercises…"));
+  let lessons;
+  if (scopeValue === "studied") lessons = studiedLessons();
+  else if (scopeValue.startsWith("track:")) lessons = (state.curriculum.find((t) => t.id === scopeValue.slice(6))?.lessons) || [];
+  else lessons = allLessons();
+
   const pool = [];
-  for (const l of studied) {
+  const generated = (await api("/api/generated")).items;
+  for (const l of lessons) {
     const data = await getLesson(l.id);
     data.blocks.filter((b) => b.kind === "exercise").forEach((b) => pool.push({ lesson: data, block: b }));
+    generated.filter((g) => g.id.startsWith(l.id + "#")).forEach((g) => pool.push({ lesson: data, block: g }));
   }
+  area.innerHTML = "";
   if (!pool.length) {
-    inner.append(el("div", { class: "card" }, "Your completed lessons have no coding exercises yet. Complete a track 1 lesson."));
+    area.append(el("div", { class: "card" }, "This choice has no coding exercises. Choose another track, or use \"New exercise\" at the end of a lesson."));
     return;
   }
   const choices = pool.length > 1 ? pool.filter((p) => p.block.id !== lastDrillId) : pool;
@@ -538,11 +728,11 @@ async function renderDrill() {
     timer.textContent = left > 0 ? `${Math.floor(left / 60)}:${String(left % 60).padStart(2, "0")}` : "Time up";
   }, 1000);
   const result = el("div");
-  inner.append(
-    el("div", { style: "display:flex;gap:12px;align-items:center;flex-wrap:wrap" },
+  area.append(
+    el("div", { style: "display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:8px 0" },
       timer,
-      el("span", { class: "muted small", style: "flex:1" }, "From: ", el("a", { href: `#/lesson/${pick.lesson.id}` }, pick.lesson.title)),
-      el("button", { class: "btn", onclick: () => renderDrill() }, "New drill")),
+      el("span", { class: "muted small", style: "flex:1" }, `${pool.length} exercises in this choice · From: `, el("a", { href: `#/lesson/${pick.lesson.id}` }, pick.lesson.title)),
+      el("button", { class: "btn", onclick: () => drawDrill(scopeValue, area) }, "New drill")),
     exerciseWidget(pick.block, {
       fresh: true,
       onCheck: (r) => {
@@ -555,7 +745,7 @@ async function renderDrill() {
       },
     }),
     result);
-  inner.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
+  area.querySelectorAll(".CodeMirror").forEach((cm) => cm.CodeMirror.refresh());
 }
 
 // ---------- Mock interviews ----------

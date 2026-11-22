@@ -2,7 +2,9 @@
 
 A local learning app that takes you from **"I cannot code"** to **interview-ready for Forward Deployed Engineer (FDE) roles**.
 
-It runs on your own computer. It contains all the lessons, more than 110 coding exercises that run in your browser, quizzes, written tasks, an AI tutor connected to the Claude API, and AI mock interviews.
+It runs on your own computer and is **self-contained**: all lessons, the Python runtime, the code editor and the maths renderer are inside the repo. You never need another site to study. Only the AI features (tutor, generated exercises, grading, mock interviews) call the Claude API.
+
+Every lesson is interactive: every Python example is live and editable, every lesson has exercises or scenarios, quizzes, and a **Practise this lesson** panel that gives you unlimited new exercises checked by the app before you see them.
 
 ---
 
@@ -32,12 +34,14 @@ It runs on your own computer. It contains all the lessons, more than 110 coding 
 | Part | What it gives you |
 |---|---|
 | **8 tracks, 47 lessons** | Start here → Python from zero → Maths for FDE → Coding interview patterns → LLM engineering → System design → Customer skills → Interview ready |
+| **Live examples** | Every Python example in a lesson is an editor with a **Run** button. Earlier examples on the page run first, like a notebook |
 | **117 coding exercises** | Write Python in the browser. Click **Check** to run the tests. You see which test failed, what was expected and what you got |
 | **44 quizzes** | Fast checks after each lesson, with explanations |
 | **20 written tasks** | Free-text answers (designs, STAR stories, customer cases). The AI tutor grades them against a rubric |
 | **AI tutor** | A chat panel that knows the lesson you are on. Ask questions, get hints, get your code explained or reviewed |
+| **Practise this lesson** | At the end of every lesson: unlimited AI-written exercises (easier / same / harder, each tested before you see it), a 5-question quiz, flashcards, and "explain it back" grading. Non-coding lessons get fresh scenarios instead |
 | **Playground** | A free Python editor to try ideas |
-| **Timed drill** | A random exercise from lessons you have studied, with an empty editor and a 20-minute timer |
+| **Timed drill** | A random exercise (from lessons you studied, one track, or everything — works from day one), with an empty editor and a 20-minute timer |
 | **Review queue** | Every quiz question you answered wrongly, to answer again until it is right |
 | **Study streak** | Days in a row with study activity, shown on the dashboard |
 | **Mock interviews** | Live coding (with an editor), system design, customer case and behavioural rounds, each with a timer and a verdict |
@@ -52,7 +56,7 @@ The maths track covers everything an FDE interview uses: Big-O and logarithms, b
 - A Windows, macOS or Linux computer.
 - **Python 3.11 or newer.**
 - **Git** (to clone the repo).
-- **An internet connection.** The page loads the Python runtime (Pyodide), the code editor and the maths renderer from public CDNs.
+- **Internet only for the AI features.** Lessons, live examples, exercises, quizzes, drills and the Playground work offline: Pyodide, CodeMirror, KaTeX, marked, DOMPurify and highlight.js are bundled in `static/vendor/`.
 - **An Anthropic API key** for the AI tutor and mock interviews. The lessons, exercises and quizzes work without a key. The tutor, written-task grading and mock interviews do not.
 
 ---
@@ -187,7 +191,7 @@ Shows lessons done, exercises passed, your **study streak**, your **quiz accurac
 A day counts towards the streak when you complete a lesson, run an exercise's tests, answer a quiz or submit a written task. The streak stays alive until the end of the next day.
 
 ### Drill (top menu)
-Picks a random exercise from lessons you completed or practised. The editor starts with the starter code, not your old answer, so you solve it **from memory**. A 20-minute timer runs. When the tests pass, you see how long you took. Click **New drill** for another. Do one or two drills every day: this is spaced repetition under interview pressure.
+Choose where exercises come from: **Lessons I studied**, one **track**, or **All tracks** (so it works on day one). It picks a random exercise, including your AI-generated ones. The editor starts with the starter code, not your old answer, so you solve it **from memory**. A 20-minute timer runs. When the tests pass, you see how long you took. Click **New drill** for another. Do one or two drills every day: this is spaced repetition under interview pressure.
 
 ### Review (top menu)
 Lists every quiz question you last answered wrongly, with a link to its lesson. Answer it again. A correct answer removes it from the queue. The dashboard shows how many are waiting.
@@ -196,7 +200,7 @@ Lists every quiz question you last answered wrongly, with a link to its lesson. 
 All tracks and lessons. A ✓ marks a completed lesson. Click a track name to open or close it.
 
 ### A lesson
-- **Text and code examples.** Read them. Type the examples into the Playground.
+- **Text and "Try it" examples.** Every Python example is a live editor. Change it and press **Run** (or `Ctrl+Enter`). Earlier examples on the page run first, so later examples can use their variables. **Explain this** and **Give me a challenge** ask the tutor about the example. Examples that need packages the browser does not have (for example `anthropic` or `fastapi`) are marked read-only: run those on your own machine.
 - **Exercise cards.** Each has:
   - an editor with starter code,
   - **Run** — runs your code and shows printed output,
@@ -210,6 +214,10 @@ All tracks and lessons. A ✓ marks a completed lesson. Click a track name to op
   Your code is saved. When all tests pass, the exercise is marked as passed.
 - **Quiz cards.** Click an answer to see if it is right and why.
 - **Written tasks.** Write your answer and click **Submit for grading**. The tutor grades it against a rubric and gives a score and improvements. The answer and feedback are saved.
+- **Practise this lesson** at the end:
+  1. **Unlimited exercises** — *Easier*, *New* or *Harder*. The tutor writes an exercise for this lesson. The app runs its solution against its tests and checks that the starter code fails, and only then shows it. Bad exercises are fixed or rejected automatically. Your exercises are saved (`data/generated.json`), can be deleted, and join the Drill pool. Lessons without code get **New scenario** / **Harder scenario** instead.
+  2. **Quiz me** — five mixed questions in the tutor panel, one at a time, with a score at the end. **Make flashcards** gives 6 Q&A cards.
+  3. **Explain it back** — write the lesson's main idea in your own words; the tutor scores it and shows a model explanation.
 - **Mark lesson complete** at the bottom. Do this only when you can do the exercises without help.
 
 ### Ask tutor (top right)
@@ -242,7 +250,7 @@ Press **Start** to begin and start the timer. Press **Get feedback** at the end 
 |---|---|
 | 10 min | One **Drill** (a past exercise from memory) and clear the **Review** queue |
 | 40 min | New lesson: read, type the examples, do the exercises |
-| 30 min | Extra practice: 1–2 problems on neetcode.io that match the lesson (from track 3 onwards) |
+| 30 min | **Practise this lesson**: 2–3 generated exercises (start with *Same*, move to *Harder*), then **Quiz me** |
 | 10 min | Ask the tutor about anything unclear. Write one line in a learning log |
 
 Once a week, do a longer session (3–4 hours): a written task, a mini project, or a mock interview.
@@ -318,7 +326,8 @@ Apply to less important companies first, to practise real interviews.
 | The page shows "The AI tutor is off" | Add `ANTHROPIC_API_KEY` to `.env`, then stop (`Ctrl+C`) and start the app again |
 | Tutor says "The API key was rejected" | The key is wrong or deleted. Create a new key and paste it again, with no spaces or quotes |
 | Tutor says "API error" | Check your internet connection and your Anthropic credit balance. A `429` error means rate limit: wait and try again |
-| "Loading Python…" never finishes | Pyodide loads from cdn.jsdelivr.net. Check your internet connection, VPN or firewall. Reload the page |
+| "Loading Python…" never finishes | Pyodide is bundled in `static/vendor/pyodide`. Check that the folder exists (run `git pull`), then reload the page with `Ctrl+F5` |
+| "New exercise" says "Could not make a working exercise" | The model's exercise failed the automatic checks 3 times. Click again; try *Easier* |
 | "Time limit (8s) reached" | Your code has an infinite loop (often a `while` loop whose condition never changes) |
 | `address already in use` / port 8765 busy | The app is already running in another window, or change the port: `python -m uvicorn server.app:app --port 8766` |
 | Package errors after a Python upgrade | Delete the `.venv` folder and run `run.ps1` again |
@@ -342,12 +351,14 @@ fde-trainer/
 │   │                 /api/review, /api/chats, /api/tutor
 │   ├── content.py    Reads the lesson Markdown and its exercise/quiz/written blocks
 │   ├── stats.py      Totals per track, study streak, review queue
+│   ├── generate.py   Writes new practice exercises with the Claude API (forced tool call + checks)
 │   └── tutor.py      Builds the tutor prompt (mode + your profile + lesson) and streams Claude's reply
 ├── static/
 │   ├── index.html    The page
 │   ├── app.js        The frontend: routing, dashboard, lessons, editor, quizzes, tutor, drill,
 │   │                 review queue, mock interviews
 │   ├── pyworker.js   Runs Python in a Web Worker with Pyodide and grades the tests
+│   ├── vendor/       Bundled libraries: Pyodide, CodeMirror, KaTeX, marked, DOMPurify, highlight.js
 │   └── style.css
 ├── content/          All the training material (Markdown)
 │   ├── 00-start-here/
@@ -361,7 +372,8 @@ fde-trainer/
 ├── tests/
 │   ├── test_content.py   Every exercise: solution passes, starter fails; every quiz has an answer
 │   ├── test_api.py       API endpoint tests
-│   └── test_stats.py     Streak, stats, review queue and saved chats
+│   ├── test_stats.py     Streak, stats, review queue and saved chats
+│   └── test_generate.py  Exercise generation (with a fake API client) and the saved-exercise store
 ├── .github/workflows/tests.yml   Runs pytest on GitHub for every push
 └── data/             Your progress and tutor chats (created at run time, ignored by git)
 ```
@@ -372,7 +384,8 @@ fde-trainer/
 2. The server reads the lesson's Markdown file and turns each `:::exercise`, `:::quiz` and `:::written` block into data.
 3. The browser shows the lesson. Exercise code runs **in the browser** in a Web Worker with Pyodide (Python compiled to WebAssembly). The worker runs your code, then each test line, and reports the results. If the code runs longer than 8 seconds, the worker is stopped.
 4. Progress is sent to the server and written to `data/progress.json`. Each save also records today's date in `activity`, which drives the streak. `/api/stats` and `/api/review` are computed from this file and the lesson content. Tutor chats are saved to `data/chats.json`.
-5. Tutor questions go to `/api/tutor`. The server adds a system prompt (the mode, your profile and the lesson text) and streams the reply from the Claude API back to the browser.
+5. **New exercise** calls `/api/generate`. The server asks Claude to call a `create_exercise` tool (this forces a fixed JSON shape) and checks the code parses. The browser then runs the solution against the tests and the starter against the tests in Pyodide. If a check fails, it asks again with the error. A good exercise is saved with `/api/generated`.
+6. Tutor questions go to `/api/tutor`. The server adds a system prompt (the mode, your profile and the lesson text) and streams the reply from the Claude API back to the browser.
 
 Reading `server/app.py`, `server/content.py` and `server/tutor.py` after track 1 is good practice: it is a small, real FastAPI project.
 
@@ -447,4 +460,4 @@ The first six practice features (review queue, streak, saved chats, stats endpoi
 - The server listens on `127.0.0.1` only. Other computers on your network cannot reach it.
 - `.env` (your API key), `data/` (your progress and answers) and `learner_profile.md` are in `.gitignore`. **Never commit your API key.** If you leak it, delete it in the Anthropic Console at once.
 - Exercise code runs in your browser's sandbox, not on the server.
-- Tutor messages, your code and your written answers are sent to the Claude API when you use the tutor. Do not paste confidential work data into it.
+- Tutor messages, your code and your written answers are sent to the Claude API when you use an AI feature. Nothing else leaves your computer: the page loads no external scripts or fonts. Do not paste confidential work data into it.
