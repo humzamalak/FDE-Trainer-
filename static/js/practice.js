@@ -40,7 +40,7 @@ export function makeExamplesRunnable(article) {
     pre.replaceWith(card);
     const run = async () => {
       output.classList.add("show");
-      output.textContent = loadingText(lang);
+      output.textContent = loadingText(lang); output.dataset.running = "1";
       const code = editor.getValue();
       const result = lang === "python" ? await runner.python(code, "", { setup })
         : lang === "js" ? await runner.js(setup ? setup + "\n" + code : code, "")

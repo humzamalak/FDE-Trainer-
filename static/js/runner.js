@@ -4,13 +4,19 @@
 import { el } from "./dom.js";
 
 class WorkerRunner {
-  constructor(script, name) { this.script = script; this.name = name; this.worker = null; this.ready = null; this.pending = new Map(); this.nextId = 1; }
+  constructor(script, name) { this.script = script; this.name = name; this.worker = null; this.ready = null; this.pending = new Map(); this.extenders = new Map(); this.nextId = 1; this.onStatus = null; }
 
   start() {
     this.worker = new Worker(this.script);
     this.ready = new Promise((resolve) => {
       this.worker.onmessage = (e) => {
         if (e.data.type === "ready") return resolve();
+        if (e.data.type === "loading-packages" || e.data.type === "packages-loaded") {
+          const extend = this.extenders.get(e.data.id);
+          if (extend) extend(e.data.type === "loading-packages" ? 90000 : null);
+          if (e.data.type === "loading-packages") this.onStatus?.("Loading pandas (first time only, about 10 seconds)…");
+          return;
+        }
         const done = this.pending.get(e.data.id);
         if (done) { this.pending.delete(e.data.id); done(e.data.result); }
       };
@@ -24,12 +30,15 @@ class WorkerRunner {
     await this.ready;
     const id = this.nextId++;
     return new Promise((resolve) => {
-      const timer = setTimeout(() => {
-        this.pending.delete(id);
+      const expire = () => {
+        this.pending.delete(id); this.extenders.delete(id);
         this.worker.terminate(); this.worker = null;   // kill the stuck code, start fresh next time
         resolve({ ok: false, error: `Time limit (${timeoutMs / 1000}s) reached. Do you have an infinite loop?`, tests: [], stdout: "" });
-      }, timeoutMs);
-      this.pending.set(id, (r) => { clearTimeout(timer); resolve(r); });
+      };
+      let timer = setTimeout(expire, timeoutMs);
+      // Package loading gets a longer limit; the normal limit starts again after it.
+      this.extenders.set(id, (ms) => { clearTimeout(timer); timer = setTimeout(expire, ms || timeoutMs); });
+      this.pending.set(id, (r) => { clearTimeout(timer); this.extenders.delete(id); resolve(r); });
       this.worker.postMessage({ id, ...message });
     });
   }
@@ -38,6 +47,8 @@ class WorkerRunner {
 const python = new WorkerRunner("/static/pyworker.js", "Python");
 const javascript = new WorkerRunner("/static/jsworker.js", "JavaScript");
 const sql = new WorkerRunner("/static/sqlworker.js", "SQL");
+
+export function onPythonStatus(callback) { python.onStatus = callback; }
 
 export const runner = {
   // opts.setup: code run quietly first (earlier examples in a lesson); opts.timeoutMs.
@@ -63,7 +74,11 @@ function resultTable(table) {
     table.rows.length > shown.length ? el("caption", {}, `${table.rows.length - shown.length} more rows not shown`) : "");
 }
 
+// While pandas loads, show it in every output that is waiting for a result.
+python.onStatus = (message) => document.querySelectorAll("[data-running]").forEach((o) => { o.textContent = message; });
+
 export function showResult(outputEl, result, hasTests) {
+  delete outputEl.dataset.running;
   outputEl.innerHTML = "";
   outputEl.classList.add("show");
   if (result.table) outputEl.append(resultTable(result.table));

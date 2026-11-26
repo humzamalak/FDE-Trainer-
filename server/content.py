@@ -43,10 +43,10 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-BLOCK_RE = re.compile(r"^:::(exercise|quiz|written|sql|js)[ \t]*(.*?)\n(.*?)^:::[ \t]*$", re.S | re.M)
+BLOCK_RE = re.compile(r"^:::(exercise|quiz|written|sql|js|checklist|cards)[ \t]*(.*?)\n(.*?)^:::[ \t]*$", re.S | re.M)
 EXPLICIT_ID_RE = re.compile(r"\s*\{#([a-z0-9][a-z0-9-]*)\}\s*$")
 LEGACY_ID_RE = re.compile(r"#(exercise|quiz|written)-\d+$")
-ID_PREFIX = {"exercise": "ex", "written": "wr", "quiz": "q", "sql": "sql", "js": "js"}
+ID_PREFIX = {"exercise": "ex", "written": "wr", "quiz": "q", "sql": "sql", "js": "js", "checklist": "cl", "cards": "cards"}
 SECTION_RE = re.compile(r"^--- *(starter|tests|solution|rubric|schema|expected) *---[ \t]*$", re.M)
 NAME_RE = re.compile(r"^(\d+)-(.+)$")
 
@@ -69,6 +69,8 @@ class Track:
     title: str
     description: str
     lessons: list[Lesson] = field(default_factory=list)
+    skill: str = "coding"  # <!-- skill: ... --> in _track.md; used for the skill map
+    weeks: tuple[int, int] | None = None  # <!-- weeks: 2-7 --> in _track.md; used for plan tracking
 
 
 def _title_from_markdown(text: str, fallback: str) -> str:
@@ -83,18 +85,26 @@ def _minutes_from_markdown(text: str) -> int:
     return int(match.group(1)) if match else 20
 
 
+def _comment(text: str, name: str) -> str | None:
+    match = re.search(rf"<!--\s*{name}:\s*([^>]+?)\s*-->", text)
+    return match.group(1) if match else None
+
+
+def _order_key(path: Path, text: str) -> tuple[float, str]:
+    """Sort by <!-- order: N --> if present, else by the number at the start of the name.
+    So new tracks and lessons can sit between old ones without renaming (renaming changes IDs)."""
+    explicit = _comment(text, "order")
+    number = NAME_RE.match(path.stem if path.is_file() else path.name).group(1)  # type: ignore[union-attr]
+    return (float(explicit) if explicit else float(number), path.name)
+
+
 def load_curriculum(root: Path) -> list[Track]:
     """Read every track folder and lesson file, sorted by their number prefix."""
     tracks: list[Track] = []
 
     def order(folder: Path) -> tuple[float, str]:
-        # A track can set its place with <!-- order: 3.5 --> in _track.md (new tracks can sit
-        # between old ones without renaming folders, which would change saved progress IDs).
         track_md = folder / "_track.md"
-        text = track_md.read_text(encoding="utf-8") if track_md.exists() else ""
-        match = re.search(r"<!--\s*order:\s*([\d.]+)\s*-->", text)
-        number = NAME_RE.match(folder.name).group(1)  # type: ignore[union-attr]
-        return (float(match.group(1)) if match else float(number), folder.name)
+        return _order_key(folder, track_md.read_text(encoding="utf-8") if track_md.exists() else "")
 
     for folder in sorted((p for p in root.iterdir() if p.is_dir() and NAME_RE.match(p.name)), key=order):
         track_md = folder / "_track.md"
@@ -103,11 +113,18 @@ def load_curriculum(root: Path) -> list[Track]:
         description = "\n".join(
             line for line in track_text.splitlines() if not line.startswith("# ") and not line.startswith("<!--")
         ).strip()
-        track = Track(id=folder.name, title=title, description=description)
-        for file in sorted(folder.glob("*.md")):
-            if file.name.startswith("_") or not NAME_RE.match(file.stem):
-                continue
-            text = file.read_text(encoding="utf-8")
+        weeks = _comment(track_text, "weeks")
+        track = Track(
+            id=folder.name,
+            title=title,
+            description=description,
+            skill=_comment(track_text, "skill") or "coding",
+            weeks=tuple(int(w) for w in weeks.split("-")) if weeks else None,  # type: ignore[arg-type]
+        )
+        files = [f for f in folder.glob("*.md") if not f.name.startswith("_") and NAME_RE.match(f.stem)]
+        texts = {f: f.read_text(encoding="utf-8") for f in files}
+        for file in sorted(files, key=lambda f: _order_key(f, texts[f])):
+            text = texts[file]
             track.lessons.append(
                 Lesson(
                     id=f"{folder.name}/{file.stem}",
@@ -181,6 +198,26 @@ def parse_lesson(text: str, lesson_id: str) -> dict:
         legacy = f"{lesson_id}#{kind}-{index}" if kind in ("exercise", "quiz", "written") else None
         if kind == "quiz":
             blocks.append({"id": block_id, "legacy_id": legacy, "kind": "quiz", "questions": _parse_quiz(body)})
+        elif kind == "checklist":
+            items = [line.strip()[6:].strip() for line in body.splitlines() if re.match(r"^\s*- \[[ x]\] ", line)]
+            intro = "\n".join(line for line in body.splitlines() if not re.match(r"^\s*- \[[ x]\] ", line)).strip()
+            blocks.append(
+                {
+                    "id": block_id,
+                    "legacy_id": None,
+                    "kind": "checklist",
+                    "title": title or "Checklist",
+                    "prompt": intro,
+                    "items": items,
+                }
+            )
+        elif kind == "cards":
+            # One card per line: front :: back
+            cards = [
+                {"front": front.strip(), "back": back.strip()}
+                for front, _, back in (line.partition("::") for line in body.splitlines() if "::" in line)
+            ]
+            blocks.append({"id": block_id, "legacy_id": None, "kind": "cards", "title": title or "Flashcards", "cards": cards})
         else:
             sections = _split_sections(body)
             blocks.append({"id": block_id, "legacy_id": legacy, "kind": kind, "title": title or kind.title(), **sections})
@@ -222,6 +259,8 @@ class Content:
                 "id": t.id,
                 "title": t.title,
                 "description": t.description,
+                "skill": t.skill,
+                "weeks": list(t.weeks) if t.weeks else None,
                 "lessons": [lesson.summary() for lesson in t.lessons],
             }
             for t in self.tracks

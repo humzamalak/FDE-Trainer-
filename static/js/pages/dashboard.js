@@ -1,11 +1,11 @@
 import { $, el, formatDuration, plural, safeStorage } from "../dom.js";
-import { api } from "../api.js";
+import { api, saveProgress } from "../api.js";
 import { renderMarkdown } from "../markdown.js";
 import { allLessons, lessonDone, state } from "../state.js";
 import { renderSidebar } from "../sidebar.js";
 import { setChatKey } from "../tutor.js";
 
-const WEEKLY_TARGET_HOURS = 10;
+const DEFAULT_WEEKLY_HOURS = 10;
 
 export async function renderDashboard() {
   state.lesson = null; renderSidebar();
@@ -22,6 +22,8 @@ export async function renderDashboard() {
   const quizPct = t && t.quiz_answered ? Math.round((t.quiz_correct / t.quiz_answered) * 100) : null;
   const wrong = t ? t.quiz_answered - t.quiz_correct : 0;
   const due = stats?.due_today || 0;
+  const dueConcepts = stats?.due_concepts || 0;
+  const WEEKLY_TARGET_HOURS = Number(state.progress.plan?.hours_per_week) || DEFAULT_WEEKLY_HOURS;
   const weekPct = stats ? Math.min(100, Math.round((stats.seconds_week / (WEEKLY_TARGET_HOURS * 3600)) * 100)) : 0;
 
   const tile = (label, value, extra, href) => el(href ? "a" : "div", { class: href ? "tile link-tile" : "tile", href: href || false },
@@ -36,7 +38,9 @@ export async function renderDashboard() {
     el("div", { class: "card" },
       el("div", { class: "grid" },
         tile("LESSONS DONE", `${done} / ${lessons.length}`, el("div", { class: "bar" }, el("i", { style: `width:${pct}%` })), target ? `#/lesson/${target.id}` : null),
-        tile("DUE FOR REVIEW TODAY", String(due), el("div", { class: "muted small" }, due ? "Start a spaced-repetition drill →" : "Nothing due. Pass exercises to add them."), "#/drill/due"),
+        tile("DUE FOR REVIEW TODAY", String(due + dueConcepts),
+          el("div", { class: "muted small" }, due + dueConcepts ? `${plural(due, "exercise")} (Drill) · ${plural(dueConcepts, "concept")} (Review) →` : "Nothing due. Pass exercises and answer quizzes to add items."),
+          due ? "#/drill/due" : "#/review"),
         tile("EXERCISES PASSED", t ? `${t.exercises_passed} / ${t.exercises}` : "–", el("div", { class: "muted small" }, "Practise in Drill →"), "#/drill"),
         tile("STUDY STREAK", stats ? plural(stats.streak, "day") : "–",
           el("div", { class: "muted small" }, stats ? `${stats.active_days} study days in total` : "")),
@@ -51,6 +55,8 @@ export async function renderDashboard() {
         el("a", { class: "btn", href: due ? "#/drill/due" : "#/drill" }, due ? `Review ${due} due` : "Timed drill (20 min)"),
         el("a", { class: "btn", href: "#/review" }, "Review queue"))),
   );
+
+  if (stats) inner.append(planCard(stats.plan), skillCard(stats.skills, stats.placement));
 
   const storage = safeStorage();
   let openTracks = [];
@@ -104,4 +110,47 @@ export async function renderDashboard() {
       list));
   }
   main.append(inner);
+}
+
+// 24-week plan: where you should be today at your hours per week, and whether you are ahead or behind.
+function planCard(plan) {
+  if (!plan) {
+    const start = el("input", { type: "date", "aria-label": "Plan start date", value: new Date().toISOString().slice(0, 10) });
+    const hours = el("input", { type: "number", min: "3", max: "40", step: "1", "aria-label": "Hours per week", value: String(DEFAULT_WEEKLY_HOURS), style: "width:5em" });
+    return el("div", { class: "card" }, el("h2", {}, "Your study plan"),
+      el("p", { class: "small" }, "The tracks are planned for 24 weeks at about 10 hours per week. Set your start date and your real hours per week. The dashboard then shows where you should be and whether you are ahead or behind."),
+      el("div", { class: "toolbar" }, el("label", {}, "Start ", start), el("label", {}, "Hours per week ", hours),
+        el("button", { class: "btn primary", onclick: async () => {
+          await saveProgress("plan", null, { start: start.value, hours_per_week: Math.max(1, Number(hours.value) || DEFAULT_WEEKLY_HOURS) });
+          renderDashboard();
+        } }, "Save plan")));
+  }
+  const d = plan.difference;
+  const verdict = d >= 0 ? (d === 0 ? "On plan." : `${plural(d, "lesson")} ahead of plan.`) : `${plural(-d, "lesson")} behind plan. Add an hour per week, or move the end date.`;
+  const pct = Math.min(100, Math.round((100 * plan.week) / Math.max(1, plan.total_weeks)));
+  return el("div", { class: "card" },
+    el("div", { class: "muted small" }, `STUDY PLAN · started ${plan.start} · ${plan.hours_per_week} h per week`),
+    el("div", { class: "stat" }, `Week ${plan.week} of ${plan.total_weeks}`),
+    el("div", { class: "bar" }, el("i", { style: `width:${pct}%` })),
+    el("p", {}, `${plan.done_lessons} lessons done; the plan expects ${plan.expected_lessons} by today. `, el("strong", {}, verdict)),
+    plan.should_be_in ? el("p", { class: "small muted" }, `This week the plan has you in: ${plan.should_be_in}.`) : "",
+    el("button", { class: "btn small", onclick: async () => { await saveProgress("plan", null, null); renderDashboard(); } }, "Change plan"));
+}
+
+// Skill map: one bar per skill, from exercises passed, quiz accuracy and written grades.
+function skillCard(skills, placement) {
+  const rows = (skills || []).map((s) => {
+    const parts = [`${s.lessons_done}/${s.lessons} lessons`];
+    if (s.exercises) parts.push(`${s.exercises_passed}/${s.exercises} exercises`);
+    if (s.quiz_accuracy !== null) parts.push(`quiz ${s.quiz_accuracy}%`);
+    if (s.written_average !== null) parts.push(`written ${s.written_average}/10`);
+    const placed = placement?.skills?.[s.skill];
+    return el("div", { class: "skill-row" },
+      el("div", { class: "skill-name" }, s.name), el("div", { class: "bar" }, el("i", { style: `width:${s.score}%` })),
+      el("div", { class: "muted small" }, `${s.score}% · ${parts.join(" · ")}${placed !== undefined ? ` · placement ${placed}%` : ""}`));
+  });
+  return el("div", { class: "card" }, el("h2", {}, "Skill map"),
+    el("p", { class: "muted small" }, "Each bar is how well you did (exercises, quizzes, written grades) times how much of the skill you have covered. The weakest bar is usually the best place to spend the next hour."),
+    ...rows,
+    el("div", { class: "toolbar" }, el("a", { class: "btn", href: "#/placement" }, placement ? `Retake placement test (last: ${placement.date})` : "Take the placement test (15 min)")));
 }

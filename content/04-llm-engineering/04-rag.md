@@ -135,3 +135,11 @@ Q: Where should access control happen in RAG?
 - [ ] After the answer is generated
 > Never rely on the model to keep secrets. If it is in the context, it can leak.
 :::
+
+:::cards RAG
+RAG in one line :: Retrieve relevant chunks, put them in the prompt, and answer only from them with citations.
+Chunk size trade-off :: Small chunks retrieve precisely but lose context; big chunks keep context but add noise and cost.
+Hybrid search :: Keyword (BM25) plus vector search, merged; helps with names, codes and rare terms.
+Re-ranking :: Retrieve many candidates cheaply, then score the top ones with a better model.
+Permission filtering :: Filter by the user's access before ranking, never after generation.
+:::

@@ -65,3 +65,9 @@ Q: In the Action part of STAR, which is better?
 - [x] "I wrote the Ansible playbook, chose X because Y, and tested it on…"
 > Interviewers need to know what YOU did.
 :::
+
+:::cards STAR
+STAR :: Situation, Task, Action, Result. Most of the time goes on Action, in the first person.
+A strong result :: A number and what changed, plus what you learned.
+Ownership signal :: Say "I" for what you did and "we" for the team.
+:::

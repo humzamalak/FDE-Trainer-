@@ -101,6 +101,15 @@ onmessage = async (event) => {
   await ready;
   const { id, code, tests, setup } = event.data;
   try {
+    // pandas and numpy are bundled but large (about 36 MB), so they load only when code imports them.
+    // Tell the page first, so it can extend the time limit while they load.
+    const source = [setup, code, tests].join("\n");
+    if (/^\s*(import|from)\s+(pandas|numpy)\b/m.test(source) && !self.packagesLoaded) {
+      postMessage({ type: "loading-packages", id });
+      await pyodide.loadPackagesFromImports(source);
+      self.packagesLoaded = true;
+      postMessage({ type: "packages-loaded", id });
+    }
     pyodide.globals.set("_code", code);
     pyodide.globals.set("_tests", tests || "");
     pyodide.globals.set("_setup", setup || "");

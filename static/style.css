@@ -149,3 +149,17 @@ a.btn{text-decoration:none;display:inline-block}
 .side-nav{display:none;flex-wrap:wrap;gap:6px;padding:4px 4px 12px;margin-bottom:10px;border-bottom:1px solid var(--line)}
 .side-nav a{padding:6px 10px;border:1px solid var(--line);border-radius:8px;text-decoration:none;color:var(--ink);font-size:13px}
 @media (max-width:1000px){.side-nav{display:flex}}
+
+/* checklists, flashcards, skill map, job tracker */
+.checklist { list-style: none; padding-left: 0; }
+.checklist li { display: flex; gap: 8px; align-items: flex-start; padding: 4px 0; }
+.checklist input { margin-top: 4px; }
+.flashcard { border: 1px solid var(--border, #333); border-radius: 8px; padding: 10px 12px; margin: 8px 0; }
+.flashcard .card-front { font-weight: 600; margin-bottom: 6px; }
+.flashcard .card-back { margin: 6px 0; }
+.skill-row { display: grid; grid-template-columns: 180px 1fr; gap: 4px 12px; align-items: center; margin: 8px 0; }
+.skill-row .muted { grid-column: 2; }
+.btn.opt.chosen { outline: 2px solid var(--accent, #6aa0ff); }
+.table-scroll { overflow-x: auto; }
+.jobs input, .jobs select { width: 100%; min-width: 7em; }
+@media (max-width: 700px) { .skill-row { grid-template-columns: 1fr; } .skill-row .muted { grid-column: 1; } }

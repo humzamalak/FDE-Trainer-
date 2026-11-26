@@ -61,9 +61,9 @@ def validate_exercise(data: dict) -> list[str]:
         asserts = 0
     if asserts == 0:
         problems.append("tests contain no assert")
-    for module in ("requests", "anthropic", "openai", "fastapi", "numpy", "pandas"):
+    for module in ("requests", "httpx", "anthropic", "openai", "fastapi"):
         if f"import {module}" in data["solution"] or f"from {module}" in data["solution"]:
-            problems.append(f"solution imports {module}; only the standard library is available")
+            problems.append(f"solution imports {module}; only the standard library, pandas and numpy are available")
     return problems
 
 
@@ -71,7 +71,7 @@ def build_request(lesson: dict | None, level: str, avoid: list[str], feedback: s
     parts = [
         "Write ONE new Python practice exercise for the lesson below.",
         LEVELS.get(level, LEVELS["same"]),
-        "Use only the Python standard library. The code runs in the browser (Pyodide): no network, no files, no input().",
+        "Use only the Python standard library (pandas and numpy also work, but use them only when the lesson is about pandas). The code runs in the browser (Pyodide): no network, no files, no input().",
         "Use a realistic context from cloud, HPC, data or AI engineering where it fits.",
         "The starter code must fail the tests. The solution must pass every test.",
     ]

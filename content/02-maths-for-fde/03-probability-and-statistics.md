@@ -169,3 +169,10 @@ Q: Why report p95 latency instead of the mean?
 - [ ] p95 is always lower
 - [ ] The mean cannot be calculated for latency
 :::
+
+:::cards Probability and statistics
+Precision :: Of the items you flagged, the share that were really positive: TP / (TP + FP).
+Recall :: Of the real positives, the share you found: TP / (TP + FN).
+Standard error of a proportion :: √(p(1−p)/n). With n = 100 and p = 0.8, about 0.04.
+Why bigger eval sets :: The uncertainty shrinks with √n: 4× the questions halves the error bar.
+:::

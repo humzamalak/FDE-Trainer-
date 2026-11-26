@@ -47,8 +47,8 @@ fde-trainer/
 1. `start.cmd` → `run.ps1` starts uvicorn on `127.0.0.1:8765`, waits for `/api/health`, then opens the browser.
 2. The server renders `index.html` with a random **API token** made at start-up. Every `/api/...` call must send it in the `X-FDE-Token` header. Requests whose `Host` is not `127.0.0.1` or `localhost` are refused (protection against DNS rebinding). So another web site open in your browser cannot use the API or spend your API credit.
 3. `main.js` loads the curriculum and progress, merges the browser's localStorage copy (`/api/progress/merge`), and routes on the URL hash (`#/lesson/...`, `#/drill`, ...).
-4. The server parses a lesson's Markdown into HTML text plus **blocks** (`:::exercise`, `:::sql`, `:::js`, `:::quiz`, `:::written`). Parsed lessons are cached until the file changes.
-5. Code never runs on the server. Python runs in Pyodide, SQL in sql.js, JavaScript in a worker — each in a Web Worker that is stopped after 8 seconds.
+4. The server parses a lesson's Markdown into HTML text plus **blocks** (`:::exercise`, `:::sql`, `:::js`, `:::quiz`, `:::written`, `:::checklist`, `:::cards`). Parsed lessons are cached until the file changes.
+5. Code never runs on the server. Python runs in Pyodide, SQL in sql.js, JavaScript in a worker — each in a Web Worker that is stopped after 8 seconds. pandas and numpy wheels are bundled in `static/vendor/pyodide/`; the Python worker loads them only when code imports them, and the time limit is raised to 90 seconds while they load.
 6. Progress changes go to `/api/progress`, `/api/srs` (spaced repetition) and `/api/time` (study time). The server writes `data/progress.json` atomically (temporary file, then rename).
 
 ## Stable IDs and migration
@@ -63,13 +63,20 @@ Saved progress is keyed by block IDs such as `01-python-from-zero/04-loops#ex-su
 
 ## Spaced repetition (SM-2)
 
-`server/progress.py:review()` updates an item's ease, repetitions and interval. Quality comes from the drill: solved in under 10 minutes = 5, inside 20 minutes = 4, over = 3, "I could not solve it" or opening the solution = 1. Intervals: 1 day, 6 days, then the previous interval × ease. Passing an exercise in a lesson for the first time schedules it for tomorrow.
+`server/progress.py:review()` updates an item's ease, repetitions and interval. Quality comes from the drill: solved in under 10 minutes = 5, inside 20 minutes = 4, over = 3, "I could not solve it" or opening the solution = 1. Intervals: 1 day, 6 days, then the previous interval × ease. Passing an exercise in a lesson for the first time schedules it for tomorrow. Quiz answers are reviews too (correct = 4, wrong = 1), keyed `<quiz block id>/<question>`; flashcards are keyed `card:<block id>/<card>` and rated by the learner (Again 1, Hard 3, Good 4, Easy 5). `progress.is_concept()` separates these "concepts" (shown in Review) from exercises (shown in Drill → Due today).
+
+## Learning-plan features
+
+- **Skill map** (`stats.skill_map`): per `<!-- skill: -->` of each track, score = average of (exercise pass rate, quiz accuracy, written grade / 10) × share of the skill's lessons completed.
+- **Plan** (`progress.plan_status`): each track has `<!-- weeks: a-b -->` at 10 h per week. Lessons are spread evenly over their weeks; your hours per week scale the pace. It returns the expected lesson count for today and the difference.
+- **Placement** (`/api/placement`): the first question of up to two quizzes per track, at most 4 per skill. The browser scores it and saves `placement`; wrong answers go into spaced repetition.
+- **Readiness and loop day** (`static/js/pages/mock.js`): computed in the browser from `/api/mocks` verdicts.
 
 ## Data files (all in `data/`, ignored by git)
 
 | File | Content |
 |---|---|
-| `progress.json` | lessons, exercises, quizzes, written answers, activity, srs, study time |
+| `progress.json` | lessons, exercises, quizzes, written answers, activity, srs, study time, checklists, plan, placement, job applications |
 | `chats.json` | tutor chats per lesson |
 | `generated.json` | AI-written exercises per lesson |
 | `mocks.json` | mock interview transcripts and verdicts |

@@ -132,3 +132,11 @@ Q: Which is the Big-O of 5n + n log n + 200?
 - [ ] O(200)
 > Keep the fastest-growing term.
 :::
+
+:::cards Big-O
+O(log n) example :: Binary search: each step halves what is left. 1 million items take about 20 steps.
+Dict / set lookup :: O(1) on average.
+Sorting :: O(n log n).
+Nested loop over the same list :: O(n²).
+log₂ of 1,000,000 :: About 20 (2^10 ≈ 1,000).
+:::

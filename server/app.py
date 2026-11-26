@@ -23,7 +23,7 @@ from server import config, usage
 from server import progress as progress_mod
 from server.content import Content
 from server.generate import generate_exercise, validate_exercise
-from server.stats import compute_stats, review_items
+from server.stats import SKILL_NAMES, compute_stats, review_items
 from server.tutor import MODES, stream_reply
 
 mimetypes.add_type("application/wasm", ".wasm")  # Pyodide loads faster with the right type
@@ -127,7 +127,7 @@ def read_progress() -> dict:
 
 
 class ProgressUpdate(BaseModel):
-    section: str  # lessons | exercises | quizzes | written | last_lesson
+    section: str  # keyed: lessons exercises quizzes written checklists; whole value: last_lesson plan placement applications
     key: str | None = None
     value: object = None
 
@@ -143,14 +143,22 @@ def _count_activity(data: dict) -> None:
     data["activity"][today] = data["activity"].get(today, 0) + 1
 
 
+KEYED_SECTIONS = {"lessons", "exercises", "quizzes", "written", "checklists"}
+WHOLE_SECTIONS = {"last_lesson", "plan", "placement", "applications"}
+
+
 @app.post("/api/progress")
 def update_progress(update: ProgressUpdate) -> dict:
-    if update.section not in {"lessons", "exercises", "quizzes", "written", "last_lesson"}:
+    if update.section not in KEYED_SECTIONS | WHOLE_SECTIONS:
         raise HTTPException(400, "Unknown section")
+    if update.section in ("plan", "placement") and not isinstance(update.value, (dict, type(None))):
+        raise HTTPException(400, f"{update.section} must be an object")
+    if update.section == "applications" and not isinstance(update.value, list):
+        raise HTTPException(400, "applications must be a list")
     with _lock:
         data = read_progress()
-        if update.section == "last_lesson":
-            data["last_lesson"] = update.value
+        if update.section in WHOLE_SECTIONS:
+            data[update.section] = update.value if update.value is not None else progress_mod.EMPTY_PROGRESS[update.section]
         elif update.key:
             if update.value is None:
                 data[update.section].pop(update.key, None)
@@ -224,12 +232,39 @@ def stats() -> dict:
     return compute_stats(data, CONTENT, date.today())
 
 
+@app.get("/api/placement")
+def placement() -> dict:
+    """A short placement test: up to 4 quiz questions per skill, spread over that skill's tracks.
+    The browser scores it and saves the result with section "placement"."""
+    CONTENT.reload()
+    questions: dict[str, list[dict]] = {}
+    for track in CONTENT.tracks:
+        if track.id.startswith("00-"):
+            continue
+        pool = []
+        for lesson in track.lessons:
+            for block in CONTENT.lesson_data(lesson.id)["blocks"]:
+                if block["kind"] == "quiz" and block["questions"]:
+                    q = block["questions"][0]
+                    pool.append({"key": f"{block['id']}/0", "track_id": track.id, "track_title": track.title, **q})
+                    break
+        step = max(1, len(pool) // 2)
+        questions.setdefault(track.skill, []).extend(pool[::step][:2])
+    return {
+        "skills": [
+            {"skill": skill, "name": SKILL_NAMES.get(skill, skill.title()), "questions": qs[:4]}
+            for skill, qs in questions.items()
+            if qs
+        ]
+    }
+
+
 @app.get("/api/review")
 def review() -> dict:
     CONTENT.reload()
     with _lock:
         data = read_progress()
-    return review_items(data, CONTENT)
+    return review_items(data, CONTENT, date.today())
 
 
 # ---------- saved tutor chats (data/chats.json) ----------

@@ -102,3 +102,9 @@ Q: Which function gives the previous row's value?
 - [x] LAG
 - [ ] ROW_NUMBER
 :::
+
+:::cards CTEs and windows
+CTE :: WITH name AS (SELECT ...): a named sub-query that makes a long query readable.
+Window function :: A calculation over related rows that keeps every row, e.g. SUM(x) OVER (PARTITION BY y).
+ROW_NUMBER vs RANK :: ROW_NUMBER gives 1, 2, 3 even for ties; RANK gives ties the same number and skips.
+:::

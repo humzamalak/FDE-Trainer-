@@ -50,3 +50,9 @@ Scenario: "A university wants AI to help researchers find the right datasets." W
 - Security: access rights per dataset, licensing restrictions, logging
 - Success: measurable outcome (time to find data, adoption, satisfaction), timeline and budget
 :::
+
+:::cards Design round framework
+First 5 minutes :: Requirements: users, scale, data, constraints, success metric. Write them down.
+Numbers to estimate :: Requests per second, storage size, latency target, cost.
+Always cover :: Security, failure modes, monitoring, rollout.
+:::

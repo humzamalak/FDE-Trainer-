@@ -67,10 +67,33 @@ function f(x) { return x + 1; }
 - JavaScript tests are one statement per line; `assert(condition, message)` and `assertEqual(actual, expected)` are available, and `await` works.
 - Python exercises and examples may use `await` at the top level (asyncio lessons).
 
+## Checklists and flashcards
+
+````markdown
+:::checklist Milestones
+Optional text above the items.
+- [ ] First milestone
+- [ ] Second milestone
+:::
+
+:::cards Title of the set
+Front of card one :: Back of card one
+Front of card two :: Back of card two
+:::
+````
+
+- Checklist ticks are saved per item (`<block id>/<item number>`), so **add new items at the end**.
+- Each flashcard is scheduled by spaced repetition as `card:<block id>/<card number>`, so also add new cards at the end.
+- Add new blocks at the **end of an existing lesson**: older progress files use position-based IDs that are migrated by position.
+
 ## Block IDs (do not lose progress)
 
 Progress is saved by block ID, which comes from the title: `:::exercise Two Sum` → `lesson#ex-two-sum`. **If you rename an exercise, its progress is lost** — keep the old ID with `:::exercise New title {#two-sum}`. After adding blocks, run `python scripts/snapshot_ids.py`; the tests fail if an ID disappears.
 
-## Track order
+## Track and lesson order, skills and plan weeks
 
-Folders sort by their number. To put a new track between existing ones without renaming folders (which would change IDs), add `<!-- order: 3.5 -->` to its `_track.md`.
+Folders and lesson files sort by their number. To put a new track or lesson between existing ones without renaming (which would change IDs), add `<!-- order: 3.5 -->` to its `_track.md` or to the lesson file.
+
+Each `_track.md` also sets:
+- `<!-- skill: coding -->` — the skill-map bar it counts towards: `coding`, `data`, `maths`, `ai`, `design`, `customer` or `career`.
+- `<!-- weeks: 7-12 -->` — its place in the 24-week plan, at about 10 hours per week. The tests check both.

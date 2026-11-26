@@ -16,6 +16,14 @@ This app takes you from "I cannot code" to "ready for a Forward Deployed Enginee
 | 6. Customer skills | Case rounds, STAR stories | 17–21 |
 | 7. Interview ready | The loop, mocks, applications | 21–24 |
 
+## Your first 20 minutes
+
+1. Take the **placement test** (dashboard → Skill map → *Take the placement test*). It shows where you are strong and which track to start with.
+2. Set **your study plan** on the dashboard: a start date and your real hours per week. The dashboard then tells you every day whether you are ahead or behind.
+3. Open the first lesson of the suggested track.
+
+Every day after that: clear **Review** (flashcards and quiz questions that are due) and do one **Drill**, then a new lesson.
+
 ## The parts of each lesson
 
 - **Text and "Try it" examples.** Every Python example is live: edit it and press **Run**. Change values, break it on purpose, and see what happens. **Explain this** and **Give me a challenge** ask the tutor about the example.

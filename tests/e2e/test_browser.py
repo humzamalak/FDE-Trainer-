@@ -192,3 +192,59 @@ def test_mobile_menu(browser, server):
     pg.locator("#menuToggle").click()
     assert pg.locator("#sidebar").is_visible()
     context.close()
+
+
+def test_checklist_and_flashcards_save(page, server):
+    page.goto(server["url"] + "/#/lesson/12-portfolio-projects/01-choosing-your-projects")
+    checklist = page.locator(".block-card").filter(has_text="Before you start each project")
+    checklist.locator("input[type=checkbox]").first.check()
+    checklist.locator(".state", has_text="1 / 5").wait_for()
+    page.goto(server["url"] + "/#/lesson/10-decomposition/01-the-decomposition-method")
+    card = page.locator(".flashcard").first
+    card.get_by_role("button", name="Show answer").click()
+    card.get_by_role("button", name="Good").click()
+    card.get_by_text("Scheduled for review.").wait_for()
+    progress = json.loads((server["data"] / "progress.json").read_text())
+    assert progress["checklists"] == {"12-portfolio-projects/01-choosing-your-projects#cl-before-you-start-each-project/0": True}
+    assert "card:10-decomposition/01-the-decomposition-method#cards-decomposition-basics/0" in progress["srs"]
+
+
+def test_placement_plan_and_job_tracker(page, server):
+    page.goto(server["url"] + "/#/placement")
+    page.get_by_role("button", name="See my result").click()
+    page.get_by_text("Start with:").wait_for()
+    page.goto(server["url"] + "/#/")
+    page.get_by_role("button", name="Save plan").click()
+    page.get_by_text("STUDY PLAN").wait_for()
+    page.get_by_text("Skill map").wait_for()
+    page.goto(server["url"] + "/#/jobs")
+    page.get_by_role("button", name="Add application").click()
+    page.get_by_label("Company").fill("Acme")
+    page.get_by_label("Company").press("Tab")
+    page.get_by_text("Saved.").wait_for()
+    progress = json.loads((server["data"] / "progress.json").read_text())
+    assert progress["applications"][0]["company"] == "Acme"
+    assert progress["plan"]["hours_per_week"] == 10
+    assert progress["placement"]["start_track"]
+    page.goto(server["url"] + "/#/loop")
+    page.get_by_text("Full loop day").first.wait_for()
+
+
+def test_pandas_exercise_runs_offline(page, server):
+    page.goto(server["url"] + "/#/lesson/01-python-from-zero/17-pandas")
+    card = page.locator(".block-card").filter(has_text="Usage per department")
+    card.wait_for()
+    page.evaluate("""() => {
+      const card = [...document.querySelectorAll('.block-card')].find(c => c.textContent.includes('Usage per department'));
+      const cm = card.querySelector('.CodeMirror').CodeMirror;
+      cm.setValue(card.querySelector('.CodeMirror') && `import pandas as pd
+
+def by_department(jobs, users):
+    merged = jobs.merge(users, on="user", how="left")
+    merged["department"] = merged["department"].fillna("unknown")
+    totals = merged.groupby("department")["gpu_hours"].sum().round(1)
+    return {d: float(h) for d, h in totals.items()}
+`);
+    }""")
+    card.get_by_role("button", name="Check").click()
+    card.locator(".pass-banner.ok").wait_for(timeout=180000)

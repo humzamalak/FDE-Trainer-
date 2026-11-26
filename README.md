@@ -2,11 +2,11 @@
 
 A local, self-contained learning app that takes you from **"I cannot code"** to **interview-ready for Forward Deployed Engineer (FDE) roles**.
 
-- **10 tracks, 57 lessons**: Python from zero (including asyncio and messy real data), the maths interviews use, coding interview patterns, SQL, JavaScript/TypeScript, LLM engineering, system design, customer skills, and interview preparation.
-- **152 coding exercises** (Python, SQL, JavaScript) that run in your browser with tests, hints and solutions. Every code example in a lesson is live and editable.
-- **AI tutor** (Claude API) that knows the lesson you are on, **unlimited new exercises** tested before you see them, quizzes, written tasks graded against rubrics, and **mock interviews** with verdicts.
-- **Spaced repetition** drills, a review queue, study streak and study time, progress saved on disk and in the browser.
-- Works **offline**: Python (Pyodide), SQLite, the editor and the maths renderer are bundled. Only the AI features use the internet.
+- **14 tracks, 87 lessons**: Python from zero (including asyncio, messy data, regex and pandas), the maths interviews use (including business maths), coding interview patterns (including DP, backtracking, linked lists, tries, union-find), debugging unfamiliar code, SQL, JavaScript/TypeScript, LLM engineering (including fine-tuning trade-offs, latency and cost), guided portfolio projects, system design (including compliance architecture), decomposition, engineering practice (Git, code review, Docker, CI/CD, writing), customer skills (including hard conversations), and interview and job-search preparation.
+- **192 coding exercises** (Python, SQL, JavaScript) that run in your browser with tests, hints and solutions. Every code example in a lesson is live and editable. pandas is bundled and works offline.
+- **AI tutor** (Claude API) that knows the lesson you are on, **unlimited new exercises** tested before you see them, quizzes, written tasks graded against rubrics, and **8 kinds of mock interview** with verdicts, a readiness score and a full **loop day**.
+- **Spaced repetition** for exercises, quiz questions and flashcards; a review queue; a **placement test** and **skill map**; a **24-week plan** that shows whether you are ahead or behind; project milestone checklists; a **job search tracker**; study streak and time. Progress is saved on disk and in the browser.
+- Works **offline**: Python (Pyodide with pandas), SQLite, the editor and the maths renderer are bundled. Only the AI features use the internet.
 
 ## Quick start (Windows)
 
@@ -18,7 +18,7 @@ A local, self-contained learning app that takes you from **"I cannot code"** to 
    ```
 3. Double-click **`start.cmd`** in the `fde-trainer` folder. The first run installs everything and creates `.env`.
 4. For the AI features, put your key in `.env` (`ANTHROPIC_API_KEY=sk-ant-...`, from https://console.anthropic.com/), close the terminal window and double-click `start.cmd` again.
-5. Study at **http://127.0.0.1:8765**. Start with **0. Start here → How to use this app**.
+5. Study at **http://127.0.0.1:8765**. Start with **0. Start here → How to use this app**, then take the **placement test** and set your **study plan** on the dashboard.
 
 macOS / Linux: `./run.sh`. Details, manual setup and settings: [docs/setup.md](docs/setup.md).
 

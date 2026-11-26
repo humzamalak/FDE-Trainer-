@@ -14,10 +14,14 @@ EMPTY_PROGRESS: dict = {
     "written": {},  # block id -> {"answer": str, "feedback": str}
     "last_lesson": None,
     "activity": {},  # ISO date -> number of study actions
-    "srs": {},  # item id -> spaced-repetition state (see review())
+    "srs": {},  # item id -> spaced-repetition state (see review()): exercises, quiz questions, cards
     "time": {"days": {}, "lessons": {}},  # seconds studied per day / per lesson
+    "checklists": {},  # "<block id>/<item index>" -> True (ticked)
+    "plan": {},  # {"start": ISO date, "hours_per_week": number}
+    "placement": {},  # {"date": ISO date, "skills": {skill: percent}, "start_track": id}
+    "applications": [],  # job search tracker rows (see the job-search lesson)
 }
-ACTIVITY_SECTIONS = {"lessons", "exercises", "quizzes", "written"}
+ACTIVITY_SECTIONS = {"lessons", "exercises", "quizzes", "written", "checklists"}
 LEGACY_RE = re.compile(r"#(exercise|quiz|written)-\d+")
 
 
@@ -76,6 +80,8 @@ def merge(server: dict, local: dict) -> dict:
     - exercises: passed if passed in either copy; keep the server's code if it has some
     - activity and study time: per key, the larger number
     - srs: the copy reviewed most recently wins
+    - checklists: ticked in either copy
+    - plan / placement / applications: the server's value, unless it is empty
     """
     merged = normalise(server)
     local = normalise(local or {})
@@ -100,6 +106,14 @@ def merge(server: dict, local: dict) -> dict:
         for key, secs in local["time"][part].items():
             if isinstance(secs, (int, float)):
                 merged["time"][part][key] = max(merged["time"][part].get(key, 0), secs)
+    for key, ticked in local["checklists"].items():
+        if ticked:
+            merged["checklists"][key] = True
+    for key in ("plan", "placement"):
+        if not merged.get(key) and local.get(key):
+            merged[key] = local[key]
+    if not merged.get("applications") and local.get("applications"):
+        merged["applications"] = local["applications"]
     for key, state in local["srs"].items():
         mine = merged["srs"].get(key)
         if not isinstance(state, dict):
@@ -157,6 +171,53 @@ def review(state: dict | None, quality: int, today: date) -> dict:
         "due": (today + timedelta(days=interval)).isoformat(),
         "last": today.isoformat(),
         "quality": quality,
+    }
+
+
+QUIZ_KEY_RE = re.compile(r"#q-[^/#]*/\d+$")
+
+
+def is_concept(key: str) -> bool:
+    """Quiz questions and flashcards are 'concepts'; everything else in srs is a coding exercise."""
+    return key.startswith("card:") or bool(QUIZ_KEY_RE.search(key))
+
+
+def plan_status(progress: dict, tracks: list[dict], today: date) -> dict | None:
+    """Where you should be in the plan today, and how far ahead or behind you are.
+
+    Each track has a week range (<!-- weeks: 2-7 --> in _track.md), set for about 10 hours per week.
+    Its lessons are spread evenly over those weeks. With more or fewer hours, the plan runs faster or slower."""
+    plan = progress.get("plan") or {}
+    if not plan.get("start"):
+        return None
+    start = date.fromisoformat(plan["start"])
+    hours = float(plan.get("hours_per_week") or 10)
+    pace = hours / 10
+    days = max(0, (today - start).days)
+    plan_week = days / 7 * pace + 1  # the "plan week" you reach at your pace
+    expected = 0.0
+    should_be_in = None
+    for track in tracks:
+        if not track.get("weeks"):
+            continue
+        first, last = track["weeks"]
+        n = len(track["lessons"])
+        if plan_week >= last + 1:
+            expected += n
+        elif plan_week >= first:
+            expected += n * (plan_week - first) / (last - first + 1)
+            should_be_in = should_be_in or track["title"]
+    done = sum(1 for t in tracks for lesson in t["lessons"] if (progress.get("lessons") or {}).get(lesson["id"]))
+    final_week = max((t["weeks"][1] for t in tracks if t.get("weeks")), default=24)
+    return {
+        "start": plan["start"],
+        "hours_per_week": hours,
+        "week": days // 7 + 1,
+        "total_weeks": round(final_week / pace),
+        "expected_lessons": round(expected),
+        "done_lessons": done,
+        "difference": done - round(expected),  # positive = ahead of plan
+        "should_be_in": should_be_in,
     }
 
 

@@ -158,3 +158,82 @@ Q: Which status should you retry?
 - [ ] 404
 - [x] 503
 :::
+
+## Jitter and idempotency keys
+
+Two ideas separate a toy client from a production one.
+
+**Jitter.** If 1,000 clients fail at the same moment and all retry after exactly 1, 2, 4 seconds, they hit the server together again each time (a "thundering herd"). Add randomness: **full jitter** waits a random time between 0 and the exponential delay, capped at a maximum:
+
+$$\text{wait} = \text{random}(0,\ \min(\text{cap},\ \text{base} \times 2^{\text{attempt}}))$$
+
+If the server sends a `Retry-After` header (common with 429 and 503), wait at least that long.
+
+**Idempotency keys.** A retry is only safe if doing the request twice has the same effect as doing it once. `GET`, `PUT` and `DELETE` are idempotent by design; `POST` ("create a payment") is not. If the response is lost after the server created the payment, a retry creates a **second** payment. The fix: the client generates a unique key (`uuid.uuid4()`) per logical operation and sends it in a header like `Idempotency-Key`. The server stores the key with the result; a repeat with the same key returns the stored result instead of acting again. Stripe and many payment APIs work this way, and you should build your own APIs this way too.
+
+:::exercise Backoff with full jitter
+Write `delays(attempts, base, cap, rand)` that returns the list of waits before each retry (so `attempts - 1` values). Each wait is `rand() * min(cap, base * 2 ** i)` for `i = 0, 1, 2, …`. `rand` is passed in (normally `random.random`) so the tests can control it.
+--- starter ---
+def delays(attempts, base, cap, rand):
+    return [base * 2 ** i for i in range(attempts - 1)]
+--- tests ---
+assert delays(4, 1, 100, lambda: 0.5) == [0.5, 1.0, 2.0]
+assert delays(6, 1, 5, lambda: 1.0) == [1, 2, 4, 5, 5]
+assert delays(1, 1, 5, lambda: 1.0) == []
+import random
+random.seed(1)
+ws = delays(5, 2, 10, random.random)
+assert len(ws) == 4 and all(0 <= w <= 10 for w in ws) and len(set(ws)) == 4
+--- solution ---
+def delays(attempts, base, cap, rand):
+    return [rand() * min(cap, base * 2 ** i) for i in range(attempts - 1)]
+:::
+
+:::exercise An idempotent payments endpoint
+Write a class `Payments` with `create(key, amount)`. The first call with a key creates a payment and returns `{"id": n, "amount": amount}` with ids 1, 2, 3, …. A repeat call with the **same key** returns the same result and creates nothing. A repeat with the same key but a **different amount** is a client bug: raise `ValueError`.
+--- starter ---
+class Payments:
+    def __init__(self):
+        self.created = []
+
+    def create(self, key, amount):
+        payment = {"id": len(self.created) + 1, "amount": amount}
+        self.created.append(payment)
+        return payment
+--- tests ---
+p = Payments()
+first = p.create("k1", 50)
+assert first == {"id": 1, "amount": 50}
+assert p.create("k1", 50) == first          # a retry: same answer
+assert len(p.created) == 1                  # and no second payment
+assert p.create("k2", 20) == {"id": 2, "amount": 20}
+try:
+    p.create("k1", 99)
+    raise AssertionError("expected ValueError")
+except ValueError:
+    pass
+--- solution ---
+class Payments:
+    def __init__(self):
+        self.created = []
+        self.by_key = {}
+
+    def create(self, key, amount):
+        if key in self.by_key:
+            stored = self.by_key[key]
+            if stored["amount"] != amount:
+                raise ValueError("idempotency key reused with a different request")
+            return stored
+        payment = {"id": len(self.created) + 1, "amount": amount}
+        self.created.append(payment)
+        self.by_key[key] = payment
+        return payment
+:::
+
+:::cards HTTP reliability
+Retry these status codes :: 429, 500, 502, 503, 504 and network errors — with backoff. Not 400, 401, 403, 404.
+Full jitter :: wait = random(0, min(cap, base × 2^attempt)); stops many clients retrying at the same moment.
+Retry-After header :: The server tells you how long to wait; respect it.
+Idempotency key :: A unique key per logical operation, so a retried POST does not act twice.
+Idempotent methods :: GET, PUT, DELETE (by design). POST is not.
+:::

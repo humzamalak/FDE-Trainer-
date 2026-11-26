@@ -2,6 +2,7 @@
 -r requirements.txt
 httpx==0.28.1
 pytest==9.1.1
+pandas==3.0.5  # only for tests: lesson exercises that use pandas (the browser uses the bundled Pyodide pandas)
 playwright==1.63.0
 ruff==0.16.9
 mypy==2.3.1

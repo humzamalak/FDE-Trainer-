@@ -43,6 +43,11 @@ def test_validate_catches_problems():
     assert validate_exercise({"title": "x"})
 
 
+def test_pandas_is_allowed_because_it_is_bundled():
+    pandas_solution = "import pandas as pd\n\ndef f(x):\n    return x\n"
+    assert not any("pandas" in p for p in validate_exercise({**GOOD, "solution": pandas_solution}))
+
+
 def test_generate_forces_the_tool_and_returns_exercise():
     client = FakeClient(GOOD)
     result = generate_exercise({"title": "Loops", "raw": "# Loops"}, "harder", ["Old one"], client=client)

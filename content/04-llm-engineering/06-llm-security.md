@@ -119,3 +119,9 @@ Q: What is the most reliable defence against prompt injection?
 - [x] Limiting what the model can access and do (least privilege, approvals), because you cannot fully prevent it
 - [ ] Using a bigger model
 :::
+
+:::cards LLM security
+Prompt injection :: Text in a document or tool result that tries to change the model's instructions.
+Main defence for agents :: Least privilege tools and human approval for actions; never trust model output as a command.
+Data exfiltration risk :: A model that can read secrets and also call the internet or render links can leak them.
+:::

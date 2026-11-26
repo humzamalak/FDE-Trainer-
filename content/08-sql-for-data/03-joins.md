@@ -100,3 +100,9 @@ Q: After a join, the row count is much bigger than expected. Most likely cause?
 - [ ] SQLite is broken
 - [ ] You used LIMIT
 :::
+
+:::cards Joins
+INNER JOIN :: Only rows with a match in both tables.
+LEFT JOIN :: Every row from the left table; NULLs where the right has no match.
+Row count grows after a join :: The join key is not unique in one of the tables.
+:::

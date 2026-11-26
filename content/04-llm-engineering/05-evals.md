@@ -117,3 +117,9 @@ Q: v1 scores 80%, v2 scores 80% on the same 50 questions. Are they equivalent?
 - [ ] Yes
 - [x] Not necessarily: check which questions were fixed and which broke
 :::
+
+:::cards Evals
+Why evals first :: Without a score you cannot tell whether a change made things better or worse.
+LLM-as-judge risk :: The judge can be biased or wrong; check it against human labels on a sample.
+Good eval set :: Real questions, expected answers, hard and unanswerable cases, kept fixed between runs.
+:::

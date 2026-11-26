@@ -42,7 +42,7 @@ export function renderPlayground() {
   const load = () => storage?.getItem(key()) || START[lang];
   const run = async () => {
     try { storage?.setItem(key(), editor.getValue()); } catch (e) { /* ignore */ }
-    output.textContent = loadingText(lang);
+    output.textContent = loadingText(lang); output.dataset.running = "1";
     const code = editor.getValue();
     const result = lang === "sql" ? await runner.sql(code) : lang === "js" ? await runner.js(code) : await runner.python(code);
     showResult(output, result, false);

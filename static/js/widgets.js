@@ -1,4 +1,5 @@
-// Interactive blocks inside lessons: exercises (Python, SQL, JavaScript), quizzes, written tasks.
+// Interactive blocks inside lessons: exercises (Python, SQL, JavaScript), quizzes, written tasks,
+// checklists (project milestones) and flashcards.
 
 import { el, perFrame } from "./dom.js";
 import { reviewItem, saveProgress, streamTutor } from "./api.js";
@@ -44,7 +45,7 @@ export function exerciseWidget(block, opts = {}) {
 
   const run = async (withTests) => {
     output.classList.add("show");
-    output.textContent = loadingText(kind);
+    output.textContent = loadingText(kind); output.dataset.running = "1";
     const result = await check(block, editor.getValue(), withTests);
     lastResult = result;
     showResult(output, result, withTests);
@@ -103,7 +104,12 @@ export function quizWidget(block) {
       });
       explain.textContent = (choice === q.answer ? "✓ Correct. " : "✗ Not correct. ") + (q.explanation || "");
     };
-    buttons.forEach((b, oi) => (b.onclick = () => { reveal(oi); saveProgress("quizzes", key, oi === q.answer); }));
+    // Every answer is also a spaced-repetition review, so concepts come back in Review when they are due.
+    buttons.forEach((b, oi) => (b.onclick = async () => {
+      reveal(oi);
+      await saveProgress("quizzes", key, oi === q.answer);
+      await reviewItem(key, oi === q.answer ? 4 : 1);
+    }));
     if (prev !== undefined) explain.textContent = prev ? "You answered this correctly before." : "You got this wrong before. Try again.";
     box.append(...buttons, explain);
     body.append(box);
@@ -141,8 +147,52 @@ export function writtenWidget(block) {
     el("div", { class: "block-body" }, prompt, answer, el("div", { class: "toolbar" }, submit), feedback));
 }
 
+export function checklistWidget(block) {
+  const ticked = () => block.items.filter((_, i) => state.progress.checklists?.[`${block.id}/${i}`]).length;
+  const count = el("span", { class: "state" });
+  const update = () => { count.textContent = `${ticked()} / ${block.items.length}`; };
+  const prompt = el("div");
+  if (block.prompt) renderMarkdown(block.prompt, prompt);
+  const list = el("ul", { class: "checklist" }, block.items.map((item, i) => {
+    const key = `${block.id}/${i}`;
+    const box = el("input", { type: "checkbox", id: `cl-${block.id}-${i}`.replace(/[^\w-]/g, "_") });
+    box.checked = !!state.progress.checklists?.[key];
+    box.onchange = async () => { await saveProgress("checklists", key, box.checked ? true : null); update(); };
+    return el("li", {}, box, el("label", { for: box.id }, inlineMd(item)));
+  }));
+  update();
+  return el("div", { class: "block-card" },
+    el("div", { class: "block-head" }, el("span", { class: "tag" }, "Checklist"), block.title, count),
+    el("div", { class: "block-body" }, prompt, list));
+}
+
+// One flashcard: show the front, reveal the back, then rate it. The rating schedules the next review.
+export function flashcard(card, key, onRated) {
+  const back = el("div", { class: "card-back", style: "display:none" });
+  renderMarkdown(card.back, back);
+  const rate = el("div", { class: "toolbar", style: "display:none" },
+    ...[["Again", 1], ["Hard", 3], ["Good", 4], ["Easy", 5]].map(([label, q]) =>
+      el("button", { class: "btn small", onclick: async () => {
+        await reviewItem(key, q);
+        rate.replaceChildren(el("span", { class: "muted small" }, q < 3 ? "It comes back tomorrow." : "Scheduled for review."));
+        if (onRated) onRated(q);
+      } }, label)));
+  const show = el("button", { class: "btn", onclick: () => { back.style.display = ""; rate.style.display = ""; show.remove(); } }, "Show answer");
+  return el("div", { class: "flashcard" }, el("div", { class: "card-front" }, inlineMd(card.front)), show, back, rate);
+}
+
+export function cardsWidget(block) {
+  const body = el("div", { class: "block-body" },
+    el("p", { class: "muted small" }, "Say the answer out loud first, then check. Your rating decides when the card comes back in Review."));
+  block.cards.forEach((card, ci) => body.append(flashcard(card, `card:${block.id}/${ci}`)));
+  return el("div", { class: "block-card" },
+    el("div", { class: "block-head" }, el("span", { class: "tag" }, "Flashcards"), block.title, el("span", { class: "state" }, `${block.cards.length} cards`)), body);
+}
+
 export function blockWidget(block) {
   if (block.kind === "quiz") return quizWidget(block);
   if (block.kind === "written") return writtenWidget(block);
+  if (block.kind === "checklist") return checklistWidget(block);
+  if (block.kind === "cards") return cardsWidget(block);
   return exerciseWidget(block);
 }

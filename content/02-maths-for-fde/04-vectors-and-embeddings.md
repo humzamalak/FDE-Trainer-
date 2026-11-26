@@ -136,3 +136,9 @@ Q: Why do vector databases use ANN indexes like HNSW?
 - [x] Exact search over millions of vectors is too slow; ANN trades a little recall for speed
 - [ ] LLMs require them
 :::
+
+:::cards Vectors and embeddings
+Cosine similarity :: a·b ÷ (|a| |b|): 1 means same direction, 0 unrelated.
+Dot product of normalised vectors :: Equals their cosine similarity.
+Embedding :: A vector that represents meaning, so similar texts are close together.
+:::

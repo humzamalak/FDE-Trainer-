@@ -8,7 +8,7 @@ export function renderSidebar() {
   side.innerHTML = "";
   // The main pages; shown here only on narrow screens, where the top bar has no room.
   side.append(el("nav", { class: "side-nav", "aria-label": "Pages" },
-    [["#/", "Dashboard"], ["#/drill", "Drill"], ["#/review", "Review"], ["#/playground", "Playground"], ["#/mock", "Mock interviews"], ["#/settings", "Settings"]]
+    [["#/", "Dashboard"], ["#/drill", "Drill"], ["#/review", "Review"], ["#/playground", "Playground"], ["#/mock", "Mock interviews"], ["#/jobs", "Job search"], ["#/settings", "Settings"]]
       .map(([href, label]) => el("a", { href }, label))));
   for (const track of state.curriculum) {
     const done = track.lessons.filter((l) => lessonDone(l.id)).length;

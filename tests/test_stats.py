@@ -67,7 +67,13 @@ def test_api_stats_review_and_chats(tmp_path, monkeypatch):
     client.post("/api/progress", json={"section": "quizzes", "key": "x/quiz-0/0", "value": False})
     assert client.get("/api/progress").json()["activity"] == {date.today().isoformat(): 1}
     assert client.get("/api/stats").json()["streak"] == 1
-    assert client.get("/api/review").json() == {"quizzes": [], "exercises": [], "written": []}  # unknown key ignored
+    assert client.get("/api/review").json() == {
+        "quizzes": [],
+        "exercises": [],
+        "written": [],
+        "due_quizzes": [],
+        "due_cards": [],
+    }  # unknown key ignored
     assert client.post("/api/progress", json={"section": "activity", "key": "x", "value": 1}).status_code == 400
 
     msgs = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}, {"role": "system", "content": "no"}]

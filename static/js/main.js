@@ -9,7 +9,9 @@ import { wireTutor } from "./tutor.js";
 import { renderDashboard } from "./pages/dashboard.js";
 import { renderDrill } from "./pages/drill.js";
 import { renderLesson } from "./pages/lesson.js";
-import { renderMock, renderMockMenu, renderMockView } from "./pages/mock.js";
+import { renderJobs } from "./pages/jobs.js";
+import { renderLoopDay, renderMock, renderMockMenu, renderMockView } from "./pages/mock.js";
+import { renderPlacement } from "./pages/placement.js";
 import { renderPlayground } from "./pages/playground.js";
 import { renderReview } from "./pages/review.js";
 import { renderSettings } from "./pages/settings.js";
@@ -26,6 +28,9 @@ async function route() {
     else if (hash.startsWith("mock-view/")) await renderMockView(hash.slice(10));
     else if (hash.startsWith("mock/")) renderMock(hash.slice(5));
     else if (hash === "mock") await renderMockMenu();
+    else if (hash === "loop") await renderLoopDay();
+    else if (hash === "placement") await renderPlacement();
+    else if (hash === "jobs") renderJobs();
     else if (hash === "settings") await renderSettings();
     else await renderDashboard();
   } catch (err) {
