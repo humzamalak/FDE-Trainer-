@@ -96,3 +96,15 @@ textarea.answer{width:100%;min-height:160px;font:inherit;padding:10px;border-rad
 .practice{margin-top:40px;padding-top:12px;border-top:2px solid var(--accent)}
 .practice .card{margin-top:12px}
 .select{font:inherit;font-size:13px;padding:6px 10px;border-radius:8px;border:1px solid var(--line);background:var(--panel);color:var(--ink)}
+.tile{display:block;padding:6px 8px;margin:-6px -8px;border-radius:10px;color:inherit;text-decoration:none}
+.link-tile{cursor:pointer}
+.link-tile:hover{background:var(--accent-soft)}
+.track-card .track-head{display:flex;gap:10px;align-items:center;cursor:pointer;border-radius:8px;padding:4px 6px;margin:-4px -6px}
+.track-card .track-head:hover{background:var(--accent-soft)}
+.track-card .arrow{width:14px;color:var(--accent)}
+.lesson-list{list-style:none;margin:10px 0 0;padding:0;border-top:1px solid var(--line)}
+.lesson-list li a{display:flex;gap:10px;align-items:center;padding:8px 6px;border-bottom:1px solid var(--line);text-decoration:none;color:var(--ink)}
+.lesson-list li a:hover{background:var(--accent-soft)}
+.lesson-list li a.done .title{color:var(--muted)}
+.lesson-list .title{flex:1}
+a.btn{text-decoration:none;display:inline-block}

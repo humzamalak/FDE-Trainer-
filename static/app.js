@@ -28,8 +28,18 @@ async function api(path, options = {}) {
   if (!res.ok) throw new Error(`${res.status} ${await res.text()}`);
   return res.json();
 }
+// Progress lives in data/progress.json AND in this browser's localStorage.
+// On start-up the two are merged, so progress survives a lost file or a fresh clone.
+const LOCAL_PROGRESS_KEY = "fde-trainer-progress";
+function saveLocalProgress(progress) {
+  try { localStorage.setItem(LOCAL_PROGRESS_KEY, JSON.stringify(progress)); } catch (e) { /* storage full or blocked */ }
+}
+function readLocalProgress() {
+  try { return JSON.parse(localStorage.getItem(LOCAL_PROGRESS_KEY) || "null"); } catch (e) { return null; }
+}
 async function saveProgress(section, key, value) {
   state.progress = await api("/api/progress", { method: "POST", body: JSON.stringify({ section, key, value }) });
+  saveLocalProgress(state.progress);
   renderSidebar();
 }
 async function streamTutor({ mode = "tutor", messages, lessonId = null, context = null }, onText) {
@@ -255,7 +265,8 @@ async function renderDashboard() {
   const quizPct = t && t.quiz_answered ? Math.round((t.quiz_correct / t.quiz_answered) * 100) : null;
   const wrong = t ? t.quiz_answered - t.quiz_correct : 0;
 
-  const tile = (label, value, extra) => el("div", {}, el("div", { class: "muted small" }, label), el("div", { class: "stat" }, value), extra || "");
+  const tile = (label, value, extra, href) => el(href ? "a" : "div", { class: href ? "tile link-tile" : "tile", href: href || false },
+    el("div", { class: "muted small" }, label), el("div", { class: "stat" }, value), extra || "");
   const main = $("#main");
   main.innerHTML = "";
   const inner = el("div", { class: "inner" });
@@ -265,30 +276,62 @@ async function renderDashboard() {
     !state.tutorReady ? el("div", { class: "notice" }, "The AI tutor is off. Add your ANTHROPIC_API_KEY to the .env file, then restart the app.") : "",
     el("div", { class: "card" },
       el("div", { class: "grid" },
-        tile("LESSONS DONE", `${done} / ${lessons.length}`, el("div", { class: "bar" }, el("i", { style: `width:${pct}%` }))),
-        tile("EXERCISES PASSED", t ? `${t.exercises_passed} / ${t.exercises}` : "–"),
+        tile("LESSONS DONE", `${done} / ${lessons.length}`, el("div", { class: "bar" }, el("i", { style: `width:${pct}%` })), target ? `#/lesson/${target.id}` : null),
+        tile("EXERCISES PASSED", t ? `${t.exercises_passed} / ${t.exercises}` : "–", el("div", { class: "muted small" }, "Practise in Drill →"), "#/drill"),
         tile("STUDY STREAK", stats ? `${stats.streak} day${stats.streak === 1 ? "" : "s"}` : "–",
           el("div", { class: "muted small" }, stats ? `${stats.active_days} study days in total` : "")),
         tile("QUIZ ACCURACY", quizPct === null ? "–" : `${quizPct}%`,
-          wrong > 0 ? el("a", { href: "#/review", class: "small" }, `Review ${wrong} wrong answer${wrong === 1 ? "" : "s"} →`) : "")),
+          el("div", { class: "muted small" }, wrong > 0 ? `Review ${wrong} wrong answer${wrong === 1 ? "" : "s"} →` : "Review queue →"), "#/review")),
       el("div", { class: "toolbar", style: "margin-top:16px" },
         target ? el("a", { class: "btn primary", href: `#/lesson/${target.id}` }, `Continue: ${target.title}`)
                : el("span", { class: "muted" }, "All lessons done. Do mock interviews."),
         el("a", { class: "btn", href: "#/drill" }, "Timed drill (20 min)"),
         el("a", { class: "btn", href: "#/review" }, "Review queue"))),
   );
+  let openTracks = [];
+  try { openTracks = JSON.parse(localStorage.getItem("fde-open-tracks") || "[]"); } catch (e) {}
+  const toggleTrack = (id) => {
+    openTracks = openTracks.includes(id) ? openTracks.filter((x) => x !== id) : [...openTracks, id];
+    try { localStorage.setItem("fde-open-tracks", JSON.stringify(openTracks)); } catch (e) {}
+  };
   for (const track of state.curriculum) {
     const d = track.lessons.filter((l) => lessonDone(l.id)).length;
     const ts = stats?.tracks.find((x) => x.id === track.id);
     const mins = track.lessons.reduce((a, l) => a + l.minutes, 0);
     const meta = `${d}/${track.lessons.length} lessons` + (ts && ts.exercises ? ` · ${ts.exercises_passed}/${ts.exercises} exercises` : "") + ` · about ${Math.round(mins / 60)}h`;
-    const card = el("div", { class: "card" },
-      el("div", { style: "display:flex;justify-content:space-between;gap:12px" },
-        el("strong", {}, track.title), el("span", { class: "muted small" }, meta)),
-      el("div", { class: "bar", style: "margin:8px 0" }, el("i", { style: `width:${Math.round((d / track.lessons.length) * 100)}%` })));
+    const nextInTrack = track.lessons.find((l) => !lessonDone(l.id)) || track.lessons[0];
+    const exercisesPassedIn = (lessonId) => Object.entries(state.progress.exercises)
+      .filter(([k, v]) => k.startsWith(lessonId + "#") && v?.passed).length;
+    const list = el("ol", { class: "lesson-list" }, track.lessons.map((l) =>
+      el("li", {}, el("a", { href: `#/lesson/${l.id}`, class: lessonDone(l.id) ? "done" : "" },
+        el("span", { class: "tick" }, lessonDone(l.id) ? "✓" : ""),
+        el("span", { class: "title" }, l.title),
+        el("span", { class: "muted small" }, (exercisesPassedIn(l.id) ? `${exercisesPassedIn(l.id)} passed · ` : "") + `${l.minutes} min`)))));
+    const open = openTracks.includes(track.id);
+    list.style.display = open ? "" : "none";
+    const arrow = el("span", { class: "arrow" }, open ? "▾" : "▸");
+    const showBtn = el("button", { class: "btn" }, open ? "Hide lessons" : "Show lessons");
+    showBtn.onclick = () => flip();
+    const head = el("div", { class: "track-head", role: "button", tabindex: "0" },
+      arrow, el("strong", { style: "flex:1" }, track.title), el("span", { class: "muted small" }, meta));
+    const flip = () => {
+      toggleTrack(track.id);
+      const nowOpen = list.style.display === "none";
+      list.style.display = nowOpen ? "" : "none";
+      arrow.textContent = nowOpen ? "▾" : "▸";
+      showBtn.textContent = nowOpen ? "Hide lessons" : "Show lessons";
+    };
+    head.onclick = flip;
+    head.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); flip(); } };
     const desc = el("div", { class: "muted small" });
     renderMarkdown(track.description, desc);
-    card.append(desc);
+    const card = el("div", { class: "card track-card" }, head,
+      el("div", { class: "bar", style: "margin:8px 0" }, el("i", { style: `width:${Math.round((d / track.lessons.length) * 100)}%` })),
+      desc,
+      el("div", { class: "toolbar" },
+        el("a", { class: "btn primary", href: `#/lesson/${nextInTrack.id}` }, d === 0 ? "Start track" : d === track.lessons.length ? "Review track" : `Continue: ${nextInTrack.title}`),
+        showBtn),
+      list);
     inner.append(card);
   }
   main.append(inner);
@@ -872,6 +915,12 @@ async function init() {
   state.curriculum = cur.tracks;
   state.tutorReady = cur.tutor_ready;
   state.progress = progress;
+  const local = readLocalProgress();
+  if (local) {
+    try { state.progress = await api("/api/progress/merge", { method: "POST", body: JSON.stringify({ progress: local }) }); }
+    catch (e) { /* server too old to merge: keep the server copy */ }
+  }
+  saveLocalProgress(state.progress);
   window.addEventListener("hashchange", route);
   route();
 }

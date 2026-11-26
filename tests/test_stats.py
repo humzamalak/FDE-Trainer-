@@ -74,3 +74,41 @@ def test_api_stats_review_and_chats(tmp_path, monkeypatch):
     assert client.get("/api/chats/01-python/02-strings").json()["messages"][1]["content"] == "hello"
     client.put("/api/chats/01-python/02-strings", json={"messages": []})
     assert client.get("/api/chats/01-python/02-strings").json() == {"messages": []}
+
+
+def test_merge_progress_keeps_everything():
+    server = {
+        "lessons": {"a": "2026-11-20"},
+        "exercises": {"e1": {"passed": False, "code": "server code"}},
+        "quizzes": {"q1": True},
+        "written": {},
+        "activity": {"2026-11-20": 2},
+        "last_lesson": None,
+    }
+    local = {
+        "lessons": {"a": "2026-11-01", "b": "2026-11-21"},
+        "exercises": {"e1": {"passed": True, "code": "local code"}, "e2": {"passed": True, "code": "x"}},
+        "quizzes": {"q1": False, "q2": False},
+        "written": {"w": {"answer": "hi"}},
+        "activity": {"2026-11-20": 1, "2026-11-21": 3},
+        "last_lesson": "b",
+    }
+    merged = app_module.merge_progress(server, local)
+    assert merged["lessons"] == {"a": "2026-11-20", "b": "2026-11-21"}
+    assert merged["exercises"]["e1"] == {"passed": True, "code": "server code"}
+    assert merged["exercises"]["e2"]["passed"] is True
+    assert merged["quizzes"] == {"q1": True, "q2": False}
+    assert merged["written"] == {"w": {"answer": "hi"}}
+    assert merged["activity"] == {"2026-11-20": 2, "2026-11-21": 3}
+    assert merged["last_lesson"] == "b"
+    assert server["exercises"]["e1"]["passed"] is False  # input not changed
+
+
+def test_merge_endpoint_restores_lost_file(tmp_path, monkeypatch):
+    monkeypatch.setattr(app_module, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(app_module, "PROGRESS_FILE", tmp_path / "progress.json")
+    client = TestClient(app_module.app)
+    local = {"lessons": {"x/y": "2026-11-26"}, "activity": {"2026-11-26": 1}}
+    merged = client.post("/api/progress/merge", json={"progress": local}).json()
+    assert merged["lessons"] == {"x/y": "2026-11-26"}
+    assert client.get("/api/progress").json()["lessons"] == {"x/y": "2026-11-26"}

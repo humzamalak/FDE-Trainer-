@@ -45,7 +45,7 @@ Every lesson is interactive: every Python example is live and editable, every le
 | **Review queue** | Every quiz question you answered wrongly, to answer again until it is right |
 | **Study streak** | Days in a row with study activity, shown on the dashboard |
 | **Mock interviews** | Live coding (with an editor), system design, customer case and behavioural rounds, each with a timer and a verdict |
-| **Progress tracking** | Completed lessons, passed exercises, quiz answers, graded written tasks and tutor chats are saved on your computer |
+| **Progress tracking** | Completed lessons, passed exercises, quiz answers and graded written tasks are saved twice: in `data/progress.json` and in your browser's local storage. Tutor chats are saved in `data/chats.json` |
 
 The maths track covers everything an FDE interview uses: Big-O and logarithms, binary and powers of two, counting, probability, statistics for AI evaluations (precision, recall, confidence intervals), vectors and cosine similarity for embeddings, and back-of-envelope estimation. No calculus is needed.
 
@@ -187,6 +187,8 @@ For development, add `--reload` so the server restarts when you change Python fi
 
 ### Dashboard
 Shows lessons done, exercises passed, your **study streak**, your **quiz accuracy**, a **Continue** button to your next lesson, and progress per track (lessons and exercises).
+
+Everything is clickable: **Lessons done** opens your next lesson, **Exercises passed** opens Drill, **Quiz accuracy** opens the Review queue. Click a **track card** (or **Show lessons**) to open its lesson list, then click any lesson. **Start track / Continue** opens the first unfinished lesson in that track. The app remembers which tracks you left open.
 
 A day counts towards the streak when you complete a lesson, run an exercise's tests, answer a quiz or submit a written task. The streak stays alive until the end of the next day.
 
@@ -331,7 +333,7 @@ Apply to less important companies first, to practise real interviews.
 | "Time limit (8s) reached" | Your code has an infinite loop (often a `while` loop whose condition never changes) |
 | `address already in use` / port 8765 busy | The app is already running in another window, or change the port: `python -m uvicorn server.app:app --port 8766` |
 | Package errors after a Python upgrade | Delete the `.venv` folder and run `run.ps1` again |
-| You want to reset all progress | Stop the app and delete `data\progress.json` (and `data\chats.json` for tutor chats) |
+| You want to reset all progress | Stop the app, delete `data\progress.json` (and `data\chats.json` for tutor chats), and clear the browser's local storage for 127.0.0.1:8765 (F12 → Application → Local Storage → Clear). Otherwise the browser copy restores it |
 | Every file shows as changed in `git status` on Windows | Line endings. Run `git config core.autocrlf true`, then `git add --renormalize .` |
 
 ---
@@ -383,7 +385,7 @@ fde-trainer/
 1. The browser asks the server for the curriculum and a lesson.
 2. The server reads the lesson's Markdown file and turns each `:::exercise`, `:::quiz` and `:::written` block into data.
 3. The browser shows the lesson. Exercise code runs **in the browser** in a Web Worker with Pyodide (Python compiled to WebAssembly). The worker runs your code, then each test line, and reports the results. If the code runs longer than 8 seconds, the worker is stopped.
-4. Progress is sent to the server and written to `data/progress.json`. Each save also records today's date in `activity`, which drives the streak. `/api/stats` and `/api/review` are computed from this file and the lesson content. Tutor chats are saved to `data/chats.json`.
+4. Progress is sent to the server and written to `data/progress.json`, and the browser keeps a copy in `localStorage`. When the app starts, it sends the local copy to `/api/progress/merge`, which combines the two (nothing you finished is lost: a passed exercise stays passed). So if you delete `data/`, clone the repo again, or move folders, your progress comes back from the browser — and if you change browser, it comes from the file. Each save also records today's date in `activity`, which drives the streak. `/api/stats` and `/api/review` are computed from this file and the lesson content. Tutor chats are saved to `data/chats.json`.
 5. **New exercise** calls `/api/generate`. The server asks Claude to call a `create_exercise` tool (this forces a fixed JSON shape) and checks the code parses. The browser then runs the solution against the tests and the starter against the tests in Pyodide. If a check fails, it asks again with the error. A good exercise is saved with `/api/generated`.
 6. Tutor questions go to `/api/tutor`. The server adds a system prompt (the mode, your profile and the lesson text) and streams the reply from the Claude API back to the browser.
 

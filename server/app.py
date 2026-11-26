@@ -111,6 +111,50 @@ def update_progress(update: ProgressUpdate) -> dict:
         return data
 
 
+def merge_progress(server: dict, local: dict) -> dict:
+    """Combine progress from the browser's localStorage with progress.json. Nothing done is ever lost.
+
+    - lessons / written: keep every entry; the server's value wins when both have one
+    - exercises: passed if passed in either copy; keep the server's code if it has some
+    - quizzes: keep the server's answer, add answers only the browser has
+    - activity: per day, the larger count
+    """
+    merged = {**EMPTY_PROGRESS, **json.loads(json.dumps(server))}
+    for section in ("lessons", "written", "quizzes"):
+        for key, value in (local.get(section) or {}).items():
+            if value is not None and key not in merged[section]:
+                merged[section][key] = value
+    for key, value in (local.get("exercises") or {}).items():
+        if not isinstance(value, dict):
+            continue
+        mine = merged["exercises"].get(key)
+        if mine is None:
+            merged["exercises"][key] = value
+        else:
+            mine["passed"] = bool(mine.get("passed") or value.get("passed"))
+            if not mine.get("code") and value.get("code"):
+                mine["code"] = value["code"]
+    for day, count in (local.get("activity") or {}).items():
+        if isinstance(count, int):
+            merged["activity"][day] = max(merged["activity"].get(day, 0), count)
+    if not merged.get("last_lesson") and local.get("last_lesson"):
+        merged["last_lesson"] = local["last_lesson"]
+    return merged
+
+
+class ProgressMerge(BaseModel):
+    progress: dict
+
+
+@app.post("/api/progress/merge")
+def merge_local_progress(body: ProgressMerge) -> dict:
+    """The browser sends its localStorage copy on start-up; the result is saved and returned."""
+    with _lock:
+        merged = merge_progress(read_progress(), body.progress)
+        write_json(PROGRESS_FILE, merged)
+        return merged
+
+
 # ---------- stats, streak and review queue ----------
 
 @app.get("/api/stats")
