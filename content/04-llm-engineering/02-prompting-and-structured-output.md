@@ -41,10 +41,12 @@ Code needs JSON, not prose. Options, from best to worst:
 ```python
 from pydantic import BaseModel, ValidationError
 
+
 class Ticket(BaseModel):
     category: str
     urgent: bool
     summary: str
+
 
 try:
     t = Ticket.model_validate_json(model_text)

@@ -19,17 +19,17 @@ instance_count = 3
 hourly_cost = 0.192
 is_production = False
 
-print(type(instance_count))   # <class 'int'>
+print(type(instance_count))  # <class 'int'>
 ```
 
 ## Arithmetic
 
 ```python
-total = instance_count * hourly_cost   # 0.576
-7 / 2    # 3.5   normal division always gives a float
-7 // 2   # 3     floor division: whole part only
-7 % 2    # 1     modulo: the remainder
-2 ** 10  # 1024  power
+total = instance_count * hourly_cost  # 0.576
+7 / 2  # 3.5   normal division always gives a float
+7 // 2  # 3     floor division: whole part only
+7 % 2  # 1     modulo: the remainder
+2**10  # 1024  power
 ```
 
 `%` is very useful. `n % 2 == 0` tests if `n` is even.
@@ -37,11 +37,11 @@ total = instance_count * hourly_cost   # 0.576
 ## Converting types
 
 ```python
-int("42")      # 42
-str(42)        # "42"
-float("0.5")   # 0.5
-int(3.9)       # 3   (it cuts, it does not round)
-round(3.9)     # 4
+int("42")  # 42
+str(42)  # "42"
+float("0.5")  # 0.5
+int(3.9)  # 3   (it cuts, it does not round)
+round(3.9)  # 4
 ```
 
 Input from files, APIs and users is usually text. You must convert it before you do maths.

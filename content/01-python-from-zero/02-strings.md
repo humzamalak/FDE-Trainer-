@@ -8,7 +8,7 @@ A string (`str`) is text. You will process a lot of text: logs, API responses, c
 ```python
 name = "web-01"
 cpu = 87.456
-print(f"Server {name} CPU is {cpu:.1f}%")   # Server web-01 CPU is 87.5%
+print(f"Server {name} CPU is {cpu:.1f}%")  # Server web-01 CPU is 87.5%
 ```
 
 `:.1f` means "float with 1 decimal place".
@@ -19,12 +19,12 @@ Positions start at **0**. Negative positions count from the end.
 
 ```python
 s = "eu-west-2"
-s[0]      # "e"
-s[-1]     # "2"
-s[0:2]    # "eu"      start at 0, stop BEFORE 2
-s[3:]     # "west-2"
-s[::-1]   # "2-tsew-ue"  reversed
-len(s)    # 9
+s[0]  # "e"
+s[-1]  # "2"
+s[0:2]  # "eu"      start at 0, stop BEFORE 2
+s[3:]  # "west-2"
+s[::-1]  # "2-tsew-ue"  reversed
+len(s)  # 9
 ```
 
 ## Useful methods
@@ -33,14 +33,14 @@ Strings cannot change (they are **immutable**). Methods return a new string.
 
 ```python
 line = "  ERROR: Disk full on /dev/sda1  "
-line.strip()                 # removes spaces at both ends
-line.lower()                 # lower case
-line.strip().startswith("ERROR")   # True
-"a,b,c".split(",")           # ["a", "b", "c"]
+line.strip()  # removes spaces at both ends
+line.lower()  # lower case
+line.strip().startswith("ERROR")  # True
+"a,b,c".split(",")  # ["a", "b", "c"]
 "-".join(["eu", "west", "2"])  # "eu-west-2"
 line.replace("ERROR", "WARN")
-"Disk" in line               # True
-line.find("Disk")            # position, or -1 if not found
+"Disk" in line  # True
+line.find("Disk")  # position, or -1 if not found
 ```
 
 `split` and `join` are opposites. Learn them well. You will use them in almost every data task.

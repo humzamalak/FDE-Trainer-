@@ -20,13 +20,15 @@ from mcp.server.fastmcp import FastMCP
 
 mcp = FastMCP("ronin-budgets")
 
+
 @mcp.tool()
 def project_budget(project: str) -> dict:
     """Return the monthly budget and spend for a RONIN project."""
     return {"project": project, "budget": 500, "spent": 312.4}
 
+
 if __name__ == "__main__":
-    mcp.run()          # stdio transport by default
+    mcp.run()  # stdio transport by default
 ```
 
 The function name, type hints and docstring become the tool's schema and description.

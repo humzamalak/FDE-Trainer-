@@ -9,7 +9,7 @@ Find the indices of two numbers that add to `target`.
 
 ```python
 def two_sum(nums, target):
-    seen = {}                       # value -> index
+    seen = {}  # value -> index
     for i, x in enumerate(nums):
         need = target - x
         if need in seen:

@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="fde-token" content="__API_TOKEN__">
 <title>FDE Trainer</title>
 <link rel="stylesheet" href="/static/vendor/katex/katex.min.css">
 <link rel="stylesheet" href="/static/vendor/codemirror/codemirror.css">
@@ -10,42 +11,49 @@
 <link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
+<a class="skip" href="#main">Skip to content</a>
 <header class="topbar">
+  <button id="menuToggle" class="btn menu-btn" aria-label="Show lessons" aria-controls="sidebar" aria-expanded="false">☰</button>
   <a href="#/" class="brand">FDE Trainer</a>
-  <nav>
+  <nav aria-label="Main">
     <a href="#/">Dashboard</a>
     <a href="#/playground">Playground</a>
     <a href="#/drill">Drill</a>
     <a href="#/review">Review</a>
     <a href="#/mock">Mock interviews</a>
+    <a href="#/settings">Settings</a>
   </nav>
   <button id="tutorToggle" class="btn primary">Ask tutor</button>
 </header>
 
 <div class="layout">
-  <aside id="sidebar" class="sidebar"></aside>
-  <main id="main" class="main"><p class="muted">Loading…</p></main>
-  <aside id="tutor" class="tutor hidden">
+  <aside id="sidebar" class="sidebar" aria-label="Lessons"></aside>
+  <main id="main" class="main" tabindex="-1"><p class="muted">Loading…</p></main>
+  <aside id="tutor" class="tutor hidden" aria-label="AI tutor">
     <div class="tutor-head">
       <strong>AI tutor</strong>
       <span id="tutorLesson" class="muted small"></span>
       <button id="tutorClear" class="btn small">Clear</button>
-      <button id="tutorClose" class="btn small">✕</button>
+      <button id="tutorClose" class="btn small" aria-label="Close tutor">✕</button>
     </div>
-    <div id="tutorLog" class="chat-log"></div>
+    <div id="tutorUsage" class="usage small"></div>
+    <div id="tutorLog" class="chat-log" aria-live="polite"></div>
     <form id="tutorForm" class="chat-form">
-      <textarea id="tutorInput" rows="3" placeholder="Ask a question about this lesson. Enter to send, Shift+Enter for a new line."></textarea>
+      <textarea id="tutorInput" rows="3" aria-label="Question for the tutor" placeholder="Ask a question about this lesson. Enter to send, Shift+Enter for a new line."></textarea>
       <button class="btn primary" type="submit">Send</button>
     </form>
   </aside>
 </div>
 
+<!-- Bundled libraries (no internet needed) -->
 <script src="/static/vendor/marked/marked.min.js"></script>
 <script src="/static/vendor/dompurify/purify.min.js"></script>
 <script src="/static/vendor/katex/katex.min.js"></script>
 <script src="/static/vendor/highlight/highlight.min.js"></script>
 <script src="/static/vendor/codemirror/codemirror.js"></script>
 <script src="/static/vendor/codemirror/mode/python/python.js"></script>
-<script src="/static/app.js"></script>
+<script src="/static/vendor/codemirror/mode/javascript/javascript.js"></script>
+<script src="/static/vendor/codemirror/mode/sql/sql.js"></script>
+<script type="module" src="/static/js/main.js"></script>
 </body>
 </html>

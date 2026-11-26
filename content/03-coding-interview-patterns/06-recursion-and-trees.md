@@ -13,7 +13,7 @@ def total_size(folder):
     """folder = {"files": [sizes...], "subfolders": [folders...]}"""
     size = sum(folder["files"])
     for sub in folder["subfolders"]:
-        size += total_size(sub)        # same problem, smaller input
+        size += total_size(sub)  # same problem, smaller input
     return size
 ```
 
@@ -27,6 +27,7 @@ A tree is nodes with children and no cycles: folder trees, org charts, JSON docu
 class Node:
     def __init__(self, val, left=None, right=None):
         self.val, self.left, self.right = val, left, right
+
 
 def max_depth(node):
     if node is None:
@@ -45,14 +46,16 @@ To generate all combinations: choose, recurse, un-choose.
 ```python
 def subsets(items):
     result = []
+
     def go(i, current):
         if i == len(items):
             result.append(current[:])
             return
-        go(i + 1, current)              # skip items[i]
+        go(i + 1, current)  # skip items[i]
         current.append(items[i])
-        go(i + 1, current)              # take items[i]
-        current.pop()                   # undo
+        go(i + 1, current)  # take items[i]
+        current.pop()  # undo
+
     go(0, [])
     return result
 ```

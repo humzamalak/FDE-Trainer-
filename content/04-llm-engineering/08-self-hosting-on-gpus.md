@@ -25,6 +25,7 @@ vllm serve meta-llama/Llama-3.1-8B-Instruct --tensor-parallel-size 1 --port 8000
 
 ```python
 from openai import OpenAI
+
 client = OpenAI(base_url="http://gpu-node-07:8000/v1", api_key="unused")
 client.chat.completions.create(model="meta-llama/Llama-3.1-8B-Instruct", messages=[...])
 ```

@@ -10,10 +10,10 @@ An LLM predicts the next **token** (a piece of a word, ~4 characters) again and 
 ```python
 import anthropic
 
-client = anthropic.Anthropic()          # reads ANTHROPIC_API_KEY from the environment
+client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from the environment
 response = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1000,                    # maximum OUTPUT tokens
+    max_tokens=1000,  # maximum OUTPUT tokens
     system="You are a support assistant for an HPC cluster. Answer briefly.",
     messages=[
         {"role": "user", "content": "How do I check my Slurm jobs?"},
@@ -21,7 +21,7 @@ response = client.messages.create(
 )
 print(response.content[0].text)
 print(response.usage.input_tokens, response.usage.output_tokens)
-print(response.stop_reason)             # "end_turn", "max_tokens", "tool_use", ...
+print(response.stop_reason)  # "end_turn", "max_tokens", "tool_use", ...
 ```
 
 - `system`: instructions that apply to the whole conversation.

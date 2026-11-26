@@ -3,7 +3,16 @@
 importScripts("/static/vendor/pyodide/pyodide.js");  // bundled locally: no internet needed
 
 const HARNESS = `
-import ast, io, json, sys, traceback
+import ast, inspect, io, json, sys, traceback
+
+# Allow "await" at the top level of exercises and tests (asyncio lessons).
+_FLAGS = ast.PyCF_ALLOW_TOP_LEVEL_AWAIT
+
+async def _exec(source_or_tree, filename, ns):
+    code = compile(source_or_tree, filename, "exec", flags=_FLAGS)
+    result = eval(code, ns)
+    if inspect.iscoroutine(result):
+        await result
 
 def _user_trace(exc):
     frames = [f for f in traceback.extract_tb(exc.__traceback__) if f.filename in ("your_code.py", "tests.py")]
@@ -11,19 +20,23 @@ def _user_trace(exc):
     head = "Traceback (your code):\\n" + "\\n".join(lines) + "\\n" if lines else ""
     return head + f"{type(exc).__name__}: {exc}"
 
-def _describe_failure(node, ns):
+async def _describe_failure(node, ns):
     # For "assert a == b" show what a really was.
     t = node.test
     if isinstance(t, ast.Compare) and len(t.ops) == 1 and isinstance(t.ops[0], ast.Eq):
         try:
-            got = eval(compile(ast.Expression(t.left), "tests.py", "eval"), ns)
-            want = eval(compile(ast.Expression(t.comparators[0]), "tests.py", "eval"), ns)
+            got = eval(compile(ast.Expression(t.left), "tests.py", "eval", flags=_FLAGS), ns)
+            want = eval(compile(ast.Expression(t.comparators[0]), "tests.py", "eval", flags=_FLAGS), ns)
+            if inspect.iscoroutine(got):
+                got = await got
+            if inspect.iscoroutine(want):
+                want = await want
             return f"expected {want!r}, got {got!r}"
         except BaseException:
             pass
     return ""
 
-def _run_setup(setup, ns):
+async def _run_setup(setup, ns):
     # Earlier examples in the lesson: run each statement quietly, ignore errors.
     if not setup.strip():
         return
@@ -37,22 +50,22 @@ def _run_setup(setup, ns):
     try:
         for node in tree.body:
             try:
-                exec(compile(ast.Module([node], []), "setup.py", "exec"), ns)
+                await _exec(ast.Module([node], []), "setup.py", ns)
             except BaseException:
                 pass
     finally:
         sys.stdout, sys.stderr = old
 
-def _run(code, tests, setup=""):
+async def _run(code, tests, setup=""):
     out = io.StringIO()
     old = sys.stdout, sys.stderr
     sys.stdout = sys.stderr = out
     res = {"ok": False, "error": None, "tests": [], "stdout": ""}
     ns = {"__name__": "__main__"}
-    _run_setup(setup, ns)
+    await _run_setup(setup, ns)
     try:
         try:
-            exec(compile(code, "your_code.py", "exec"), ns)
+            await _exec(code, "your_code.py", ns)
         except SyntaxError as e:
             res["error"] = f"SyntaxError on line {e.lineno}: {e.msg}\\n  {(e.text or '').rstrip()}"
         except BaseException as e:
@@ -61,11 +74,11 @@ def _run(code, tests, setup=""):
             for node in ast.parse(tests).body:
                 src = ast.get_source_segment(tests, node)
                 try:
-                    exec(compile(ast.Module([node], []), "tests.py", "exec"), ns)
+                    await _exec(ast.Module([node], []), "tests.py", ns)
                     if isinstance(node, ast.Assert):
                         res["tests"].append({"src": src, "ok": True})
                 except AssertionError as e:
-                    msg = str(e) or _describe_failure(node, ns)
+                    msg = str(e) or await _describe_failure(node, ns)
                     res["tests"].append({"src": src, "ok": False, "msg": msg})
                 except BaseException as e:
                     res["tests"].append({"src": src, "ok": False, "msg": _user_trace(e)})
@@ -91,7 +104,7 @@ onmessage = async (event) => {
     pyodide.globals.set("_code", code);
     pyodide.globals.set("_tests", tests || "");
     pyodide.globals.set("_setup", setup || "");
-    const result = JSON.parse(pyodide.runPython("_run(_code, _tests, _setup)"));
+    const result = JSON.parse(await pyodide.runPythonAsync("await _run(_code, _tests, _setup)"));
     postMessage({ type: "result", id, result });
   } catch (err) {
     postMessage({ type: "result", id, result: { ok: false, error: String(err), tests: [], stdout: "" } });

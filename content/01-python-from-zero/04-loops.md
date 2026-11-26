@@ -14,9 +14,9 @@ for server in servers:
 ## range: count
 
 ```python
-for i in range(5):        # 0, 1, 2, 3, 4
+for i in range(5):  # 0, 1, 2, 3, 4
     print(i)
-range(2, 10, 2)           # 2, 4, 6, 8   (start, stop, step)
+range(2, 10, 2)  # 2, 4, 6, 8   (start, stop, step)
 ```
 
 `range` stops **before** the stop value. Same rule as slices.
@@ -25,7 +25,7 @@ range(2, 10, 2)           # 2, 4, 6, 8   (start, stop, step)
 
 ```python
 for i, server in enumerate(servers):
-    print(i, server)      # 0 web-01, 1 web-02, ...
+    print(i, server)  # 0 web-01, 1 web-02, ...
 ```
 
 ## The accumulator pattern
@@ -34,10 +34,10 @@ Most loop problems use this pattern: start with an empty result, update it in th
 
 ```python
 def total_cost(costs):
-    total = 0                 # 1. start value
+    total = 0  # 1. start value
     for c in costs:
-        total += c            # 2. update
-    return total              # 3. result
+        total += c  # 2. update
+    return total  # 3. result
 ```
 
 ## while: repeat until a condition changes
@@ -59,9 +59,9 @@ A `while` loop needs something that changes, or it runs forever. (This app stops
 ```python
 for line in lines:
     if line.startswith("#"):
-        continue      # skip comments
+        continue  # skip comments
     if line == "END":
-        break         # stop reading
+        break  # stop reading
 ```
 
 :::exercise Sum of even numbers

@@ -6,9 +6,11 @@
 
 ```python
 from collections import deque
+
 q = deque()
-q.append("job1"); q.append("job2")
-q.popleft()      # "job1"
+q.append("job1")
+q.append("job2")
+q.popleft()  # "job1"
 ```
 
 ## When to use a stack
@@ -21,7 +23,7 @@ q.popleft()      # "job1"
 ```python
 def next_greater(nums):
     result = [-1] * len(nums)
-    stack = []                     # indexes still waiting
+    stack = []  # indexes still waiting
     for i, x in enumerate(nums):
         while stack and nums[stack[-1]] < x:
             result[stack.pop()] = x

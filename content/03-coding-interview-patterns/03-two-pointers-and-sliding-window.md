@@ -13,9 +13,9 @@ def pair_sum_sorted(nums, target):
         if s == target:
             return [left, right]
         if s < target:
-            left += 1        # need a bigger sum
+            left += 1  # need a bigger sum
         else:
-            right -= 1       # need a smaller sum
+            right -= 1  # need a smaller sum
     return []
 ```
 
@@ -29,7 +29,7 @@ def longest_unique(s):
     left = best = 0
     for right, ch in enumerate(s):
         if ch in last_seen and last_seen[ch] >= left:
-            left = last_seen[ch] + 1     # jump past the repeat
+            left = last_seen[ch] + 1  # jump past the repeat
         last_seen[ch] = right
         best = max(best, right - left + 1)
     return best

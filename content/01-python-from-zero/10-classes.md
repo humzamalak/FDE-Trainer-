@@ -8,19 +8,20 @@ Analogy: a Terraform module is the class. Each `module "x" {}` block is an objec
 ```python
 class Server:
     def __init__(self, name, cpus):
-        self.name = name          # attributes: data on this object
+        self.name = name  # attributes: data on this object
         self.cpus = cpus
         self.jobs = []
 
-    def submit(self, job):        # a method: self is "this object"
+    def submit(self, job):  # a method: self is "this object"
         self.jobs.append(job)
 
     def load(self):
         return len(self.jobs) / self.cpus
 
+
 s = Server("gpu-01", 4)
 s.submit("train")
-s.load()      # 0.25
+s.load()  # 0.25
 ```
 
 - `__init__` runs when you create the object.
@@ -33,13 +34,15 @@ For classes that mostly hold data, use `@dataclass`. Python writes `__init__`, a
 ```python
 from dataclasses import dataclass, field
 
+
 @dataclass
 class Job:
     id: str
     gpus: int = 1
-    tags: list[str] = field(default_factory=list)   # never use [] as a default directly
+    tags: list[str] = field(default_factory=list)  # never use [] as a default directly
 
-Job("j1") == Job("j1")   # True
+
+Job("j1") == Job("j1")  # True
 ```
 
 ## When to use a class

@@ -17,9 +17,9 @@ my_tool/
 ```
 
 ```python
-import json                      # standard library
-from pathlib import Path         # one name from a module
-from my_tool.client import fetch # your own code
+import json  # standard library
+from pathlib import Path  # one name from a module
+from my_tool.client import fetch  # your own code
 ```
 
 The **standard library** is large. Learn these first: `json`, `csv`, `pathlib`, `collections`, `itertools`, `datetime`, `re`, `logging`, `subprocess`, `dataclasses`, `typing`.
@@ -29,6 +29,7 @@ The **standard library** is large. Learn these first: `json`, `csv`, `pathlib`, 
 ```python
 def main():
     print("running")
+
 
 if __name__ == "__main__":
     main()
@@ -48,9 +49,10 @@ A generator produces values one at a time, so it uses little memory. Use it for 
 def read_lines(path):
     with open(path) as f:
         for line in f:
-            yield line.rstrip("\n")    # yield: give one value, pause, continue later
+            yield line.rstrip("\n")  # yield: give one value, pause, continue later
 
-for line in read_lines("huge.log"):    # never loads the whole file
+
+for line in read_lines("huge.log"):  # never loads the whole file
     ...
 ```
 

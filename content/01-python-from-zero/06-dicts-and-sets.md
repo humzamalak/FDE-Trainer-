@@ -7,11 +7,11 @@ A **dict** maps **keys** to **values**. It is like a key-value store (Redis, Dyn
 
 ```python
 instance = {"id": "i-0abc", "type": "g5.xlarge", "running": True}
-instance["type"]                 # "g5.xlarge"
-instance["az"] = "eu-west-2a"    # add or change
-instance.get("owner")            # None (no KeyError)
-instance.get("owner", "unknown") # default value
-"id" in instance                 # True (checks keys)
+instance["type"]  # "g5.xlarge"
+instance["az"] = "eu-west-2a"  # add or change
+instance.get("owner")  # None (no KeyError)
+instance.get("owner", "unknown")  # default value
+"id" in instance  # True (checks keys)
 del instance["running"]
 
 for key, value in instance.items():
@@ -36,10 +36,11 @@ The standard library also has `collections.Counter` and `collections.defaultdict
 
 ```python
 from collections import Counter, defaultdict
-Counter(["a", "b", "a"]).most_common(1)   # [("a", 2)]
+
+Counter(["a", "b", "a"]).most_common(1)  # [("a", 2)]
 
 by_team = defaultdict(list)
-by_team["research"].append("vm-1")        # no need to create the list first
+by_team["research"].append("vm-1")  # no need to create the list first
 ```
 
 ## The grouping pattern
@@ -59,9 +60,9 @@ A **set** holds unique items, with no order. `in` is fast.
 ```python
 allowed = {"eu-west-1", "eu-west-2"}
 used = {"eu-west-2", "us-east-1"}
-used - allowed      # {"us-east-1"}   in used, not in allowed
-used & allowed      # {"eu-west-2"}   in both
-used | allowed      # all of them
+used - allowed  # {"us-east-1"}   in used, not in allowed
+used & allowed  # {"eu-west-2"}   in both
+used | allowed  # all of them
 ```
 
 Use a set when you only care "is it there?". Use a dict when you also need a value.

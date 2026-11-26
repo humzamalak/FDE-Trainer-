@@ -8,8 +8,9 @@ def monthly_cost(hourly, hours=730, count=1):
     """Return the monthly cost in GBP."""
     return hourly * hours * count
 
-monthly_cost(0.2)                 # uses the defaults
-monthly_cost(0.2, count=4)        # keyword argument
+
+monthly_cost(0.2)  # uses the defaults
+monthly_cost(0.2, count=4)  # keyword argument
 ```
 
 - `return` sends a value back and **ends** the function.
@@ -22,10 +23,11 @@ monthly_cost(0.2, count=4)        # keyword argument
 
 ```python
 def bad(x):
-    print(x * 2)      # caller gets None
+    print(x * 2)  # caller gets None
+
 
 def good(x):
-    return x * 2      # caller gets the value
+    return x * 2  # caller gets the value
 ```
 
 ## Scope
@@ -37,8 +39,7 @@ Variables made inside a function exist only inside it. Pass values in with param
 Type hints say what types a function expects. Python does not enforce them, but editors and reviewers use them. Use them in interviews and take-homes.
 
 ```python
-def healthy(nodes: list[str], limit: int = 80) -> list[str]:
-    ...
+def healthy(nodes: list[str], limit: int = 80) -> list[str]: ...
 ```
 
 ## Functions are values
@@ -49,7 +50,8 @@ You can pass a function to another function. You saw this with `sorted(key=...)`
 def apply_all(items, fn):
     return [fn(x) for x in items]
 
-apply_all(["a", "b"], str.upper)   # ["A", "B"]
+
+apply_all(["a", "b"], str.upper)  # ["A", "B"]
 ```
 
 ## *args and **kwargs (recognise them)
@@ -58,7 +60,8 @@ apply_all(["a", "b"], str.upper)   # ["A", "B"]
 def log(message, *args, **kwargs):
     print(message, args, kwargs)
 
-log("hi", 1, 2, level="info")   # hi (1, 2) {'level': 'info'}
+
+log("hi", 1, 2, level="info")  # hi (1, 2) {'level': 'info'}
 ```
 
 :::exercise Fix the bug

@@ -4,6 +4,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 import server.app as app_module
+from server import config
 from server.content import Content
 from server.stats import compute_stats, review_items, streak
 
@@ -51,7 +52,7 @@ def test_review_items_lists_wrong_answers_only():
     lesson_id = CONTENT.tracks[0].lessons[0].id
     quiz = next(b for b in CONTENT.lesson(lesson_id)["blocks"] if b["kind"] == "quiz")
     progress = {"quizzes": {f"{quiz['id']}/0": False, f"{quiz['id']}/1": True}}
-    items = review_items(progress, CONTENT)
+    items = review_items(progress, CONTENT)["quizzes"]
     assert len(items) == 1
     assert items[0]["lesson_id"] == lesson_id
     assert items[0]["question"] == quiz["questions"][0]["question"]
@@ -61,12 +62,12 @@ def test_api_stats_review_and_chats(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "DATA_DIR", tmp_path)
     monkeypatch.setattr(app_module, "PROGRESS_FILE", tmp_path / "progress.json")
     monkeypatch.setattr(app_module, "CHATS_FILE", tmp_path / "chats.json")
-    client = TestClient(app_module.app)
+    client = TestClient(app_module.app, headers={"X-FDE-Token": config.API_TOKEN})
 
     client.post("/api/progress", json={"section": "quizzes", "key": "x/quiz-0/0", "value": False})
     assert client.get("/api/progress").json()["activity"] == {date.today().isoformat(): 1}
     assert client.get("/api/stats").json()["streak"] == 1
-    assert client.get("/api/review").json() == {"items": []}  # unknown key is ignored
+    assert client.get("/api/review").json() == {"quizzes": [], "exercises": [], "written": []}  # unknown key ignored
     assert client.post("/api/progress", json={"section": "activity", "key": "x", "value": 1}).status_code == 400
 
     msgs = [{"role": "user", "content": "hi"}, {"role": "assistant", "content": "hello"}, {"role": "system", "content": "no"}]
@@ -107,7 +108,7 @@ def test_merge_progress_keeps_everything():
 def test_merge_endpoint_restores_lost_file(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "DATA_DIR", tmp_path)
     monkeypatch.setattr(app_module, "PROGRESS_FILE", tmp_path / "progress.json")
-    client = TestClient(app_module.app)
+    client = TestClient(app_module.app, headers={"X-FDE-Token": config.API_TOKEN})
     local = {"lessons": {"x/y": "2026-11-26"}, "activity": {"2026-11-26": 1}}
     merged = client.post("/api/progress/merge", json={"progress": local}).json()
     assert merged["lessons"] == {"x/y": "2026-11-26"}

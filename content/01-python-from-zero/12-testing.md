@@ -10,18 +10,24 @@ Tests prove that code works and keeps working. In take-home tests, **code withou
 from my_tool.costs import monthly_cost
 import pytest
 
+
 def test_monthly_cost_default_hours():
     assert monthly_cost(1.0) == 730
+
 
 def test_negative_rate_raises():
     with pytest.raises(ValueError):
         monthly_cost(-1)
 
-@pytest.mark.parametrize("hourly, count, expected", [
-    (1.0, 1, 730),
-    (0.5, 2, 730),
-    (0, 5, 0),
-])
+
+@pytest.mark.parametrize(
+    "hourly, count, expected",
+    [
+        (1.0, 1, 730),
+        (0.5, 2, 730),
+        (0, 5, 0),
+    ],
+)
 def test_many_cases(hourly, count, expected):
     assert monthly_cost(hourly, count=count) == expected
 ```
@@ -41,7 +47,7 @@ Do not call real APIs in unit tests. Replace them with a fake. The easiest way: 
 ```python
 def test_alert_sends_on_high_cpu():
     sent = []
-    check_and_alert(cpu=95, send=sent.append)   # fake "send"
+    check_and_alert(cpu=95, send=sent.append)  # fake "send"
     assert sent == ["CPU critical: 95%"]
 ```
 

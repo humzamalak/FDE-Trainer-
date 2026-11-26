@@ -27,7 +27,7 @@ A take-home shows how you work when nobody watches. Reviewers read the **README 
 
 ## This repo is an example
 
-This app is a small, real project: a FastAPI backend, a frontend, tests in `tests/`, and a README. Read `server/content.py` and `tests/test_content.py` when you are comfortable with track 1. Then try to add a feature yourself (see the README for ideas). That is excellent take-home practice.
+This app is a small, real project: a FastAPI backend, ES-module frontend, tests in `tests/` (including browser tests), CI, and docs in `docs/`. Read `server/content.py`, `server/progress.py` and `tests/test_progress.py` when you are comfortable with track 1. Then add a feature yourself (see `docs/development.md` for ideas). That is excellent take-home practice.
 
 :::written Practice take-home plan
 Brief: "Build a service that takes a PDF of a research grant application and returns a structured JSON summary (applicant, institution, amount, duration, topic, risks). You have 4 hours." Write your plan: scope, architecture, how you extract text, the prompt/schema approach, tests and eval, and the README sections.

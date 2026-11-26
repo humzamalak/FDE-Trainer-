@@ -29,14 +29,15 @@ Rule of thumb: Python does about $10^7$ simple steps per second. So for $n = 10^
 - **Hidden costs**: `x in list` is $O(n)$. `x in set` is $O(1)$. `list.insert(0, x)` is $O(n)$. `sorted()` is $O(n \log n)$. String `+=` in a loop can be $O(n^2)$ — use `"".join()`.
 
 ```python
-def has_duplicate_slow(nums):          # O(n^2) time, O(1) space
+def has_duplicate_slow(nums):  # O(n^2) time, O(1) space
     for i in range(len(nums)):
         for j in range(i + 1, len(nums)):
             if nums[i] == nums[j]:
                 return True
     return False
 
-def has_duplicate_fast(nums):          # O(n) time, O(n) space
+
+def has_duplicate_fast(nums):  # O(n) time, O(n) space
     seen = set()
     for x in nums:
         if x in seen:

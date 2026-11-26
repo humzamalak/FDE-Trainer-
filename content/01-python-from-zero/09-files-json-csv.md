@@ -20,8 +20,11 @@ For paths, use `pathlib`:
 
 ```python
 from pathlib import Path
+
 p = Path("data") / "costs.csv"
-p.exists(); p.read_text(encoding="utf-8"); p.suffix   # ".csv"
+p.exists()
+p.read_text(encoding="utf-8")
+p.suffix  # ".csv"
 ```
 
 ## JSON
@@ -30,10 +33,11 @@ JSON maps directly to Python: object → `dict`, array → `list`, string → `s
 
 ```python
 import json
+
 text = '{"name": "gpu-01", "gpus": 8, "tags": ["h200"]}'
-data = json.loads(text)          # str  -> Python
-data["gpus"]                     # 8
-json.dumps(data, indent=2)       # Python -> str
+data = json.loads(text)  # str  -> Python
+data["gpus"]  # 8
+json.dumps(data, indent=2)  # Python -> str
 # json.load(f) / json.dump(data, f) work with files
 ```
 
@@ -48,10 +52,11 @@ names = [i["metadata"]["name"] for i in resp["items"] if i.get("status", {}).get
 
 ```python
 import csv, io
+
 text = "service,cost\nec2,900\ns3,120\n"
-reader = csv.DictReader(io.StringIO(text))   # with a file: csv.DictReader(f)
+reader = csv.DictReader(io.StringIO(text))  # with a file: csv.DictReader(f)
 for row in reader:
-    print(row["service"], float(row["cost"]))   # values are always strings!
+    print(row["service"], float(row["cost"]))  # values are always strings!
 ```
 
 `io.StringIO` makes a string behave like a file. It is useful in tests.

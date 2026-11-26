@@ -2,14 +2,15 @@
 
 from __future__ import annotations
 
-import os
 from collections.abc import Iterator
-from pathlib import Path
+
+from server import config, usage
 
 STYLE = (
     "Write in ASD-STE100 Simplified Technical English: short sentences, active voice, "
     "one instruction per sentence, common words. Say only what is needed. "
-    "Use Markdown. Use ```python code blocks for code. Use $...$ for inline maths and $$...$$ for display maths."
+    "Use Markdown. Use ```python code blocks for code. Use $...$ for inline maths and $$...$$ for display maths. "
+    "Write money as \\$5 (with a backslash), so it is not read as maths."
 )
 
 DEFAULT_LEARNER = (
@@ -17,15 +18,16 @@ DEFAULT_LEARNER = (
     "Their application coding is weak: treat them as a beginner programmer, but not a beginner in infrastructure. "
     "Use infrastructure analogies when they help."
 )
-PROFILE_FILE = Path(__file__).resolve().parent.parent / "learner_profile.md"  # private, git-ignored
 
 
 def learner_profile() -> str:
-    if PROFILE_FILE.exists():
-        text = PROFILE_FILE.read_text(encoding="utf-8").strip()
+    """Read learner_profile.md (private, git-ignored) if it exists."""
+    if config.PROFILE_FILE.exists():
+        text = config.PROFILE_FILE.read_text(encoding="utf-8").strip()
         if text:
             return "About the learner:\n" + text[:4000]
     return DEFAULT_LEARNER
+
 
 MODES: dict[str, str] = {
     "tutor": (
@@ -72,51 +74,72 @@ MODES: dict[str, str] = {
 }
 
 
-def build_system_prompt(mode: str, lesson: dict | None, context: str | None) -> str:
-    parts = [MODES.get(mode, MODES["tutor"]), learner_profile(), STYLE]
+def build_system(mode: str, lesson: dict | None, context: str | None) -> list[dict]:
+    """System prompt as blocks. The stable part (instructions + profile + lesson) is marked for
+    prompt caching, so repeat questions on the same lesson cost much less. The context
+    (current code or answer) changes each time, so it comes after the cache breakpoint."""
+    stable = [MODES.get(mode, MODES["tutor"]), learner_profile(), STYLE]
     if lesson:
-        parts.append(
+        stable.append(
             f"The learner is studying the lesson '{lesson['title']}'. Base your help on it. "
             f"Lesson content:\n<lesson>\n{lesson['raw'][:20000]}\n</lesson>"
         )
+    blocks: list[dict] = [{"type": "text", "text": "\n\n".join(stable), "cache_control": {"type": "ephemeral"}}]
     if context:
-        parts.append(f"Extra context from the app (the learner's current code, exercise or answer):\n<context>\n{context[:20000]}\n</context>")
-    return "\n\n".join(parts)
+        blocks.append(
+            {
+                "type": "text",
+                "text": f"Extra context from the app (the learner's current code, exercise or answer):\n<context>\n{context[:20000]}\n</context>",
+            }
+        )
+    return blocks
 
 
-def api_key_present() -> bool:
-    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+def clean_history(messages: list[dict], limit: int = config.MAX_HISTORY_MESSAGES) -> list[dict]:
+    """Keep valid turns only, cap the length (cost), and make sure the list starts with a user turn."""
+    clean = [
+        {"role": m["role"], "content": str(m["content"])}
+        for m in messages
+        if m.get("role") in ("user", "assistant") and str(m.get("content", "")).strip()
+    ]
+    if len(clean) > limit:
+        first = clean[0] if clean and clean[0]["role"] == "user" else None
+        clean = clean[-limit:]
+        while clean and clean[0]["role"] != "user":
+            clean = clean[1:]
+        if first is not None and clean and clean[0] is not first:
+            clean = [first, {"role": "assistant", "content": "(Earlier messages were shortened to save cost.)"}] + clean
+    if not clean or clean[0]["role"] != "user":
+        clean.insert(0, {"role": "user", "content": "Start."})
+    return clean
 
 
 def stream_reply(mode: str, messages: list[dict], lesson: dict | None, context: str | None) -> Iterator[str]:
     """Yield the tutor's reply as text chunks."""
-    if not api_key_present():
+    if not config.api_key_present():
         yield (
             "**No API key found.**\n\n1. Copy `.env.example` to `.env`.\n"
             "2. Put your key after `ANTHROPIC_API_KEY=`. Get a key at https://console.anthropic.com/.\n"
             "3. Restart the app."
         )
         return
+    over = usage.budget_message()
+    if over:
+        yield over
+        return
 
     import anthropic  # imported here so the app still starts without the package configured
 
     client = anthropic.Anthropic()
-    model = os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5")
-    clean = [
-        {"role": m["role"], "content": str(m["content"])}
-        for m in messages
-        if m.get("role") in ("user", "assistant") and str(m.get("content", "")).strip()
-    ]
-    if not clean or clean[0]["role"] != "user":
-        clean.insert(0, {"role": "user", "content": "Start."})
     try:
         with client.messages.stream(
-            model=model,
-            max_tokens=int(os.environ.get("TUTOR_MAX_TOKENS", "2000")),
-            system=build_system_prompt(mode, lesson, context),
-            messages=clean,
+            model=config.model(),
+            max_tokens=config.max_tokens(),
+            system=build_system(mode, lesson, context),  # type: ignore[arg-type]
+            messages=clean_history(messages),  # type: ignore[arg-type]
         ) as stream:
             yield from stream.text_stream
+            usage.record(stream.get_final_message().usage, f"tutor:{mode}")
     except anthropic.AuthenticationError:
         yield "\n\n**The API key was rejected.** Check `ANTHROPIC_API_KEY` in your `.env` file."
     except anthropic.APIError as exc:  # network, rate limit, bad model name, ...

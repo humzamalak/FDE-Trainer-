@@ -5,23 +5,23 @@ A **list** is an ordered collection that can change.
 
 ```python
 nodes = ["gpu-01", "gpu-02"]
-nodes.append("gpu-03")        # add at the end
-nodes.insert(0, "login-01")   # add at a position
-nodes.remove("gpu-02")        # remove by value
-last = nodes.pop()            # remove and return the last item
-len(nodes)                    # how many items
-"gpu-01" in nodes             # True
-nodes[0], nodes[-1]           # first, last
-nodes[1:3]                    # slice: a new list
+nodes.append("gpu-03")  # add at the end
+nodes.insert(0, "login-01")  # add at a position
+nodes.remove("gpu-02")  # remove by value
+last = nodes.pop()  # remove and return the last item
+len(nodes)  # how many items
+"gpu-01" in nodes  # True
+nodes[0], nodes[-1]  # first, last
+nodes[1:3]  # slice: a new list
 ```
 
 ## Sorting
 
 ```python
 nums = [5, 2, 9]
-sorted(nums)                  # [2, 5, 9]  new list, nums is unchanged
-nums.sort()                   # changes nums itself
-sorted(nums, reverse=True)    # [9, 5, 2]
+sorted(nums)  # [2, 5, 9]  new list, nums is unchanged
+nums.sort()  # changes nums itself
+sorted(nums, reverse=True)  # [9, 5, 2]
 sorted(["b", "C", "a"], key=str.lower)  # sort by a rule
 ```
 
@@ -47,17 +47,17 @@ A tuple is like a list but **cannot change**. Use it for fixed groups of values.
 
 ```python
 point = (51.5, -0.12)
-lat, lon = point        # unpacking
+lat, lon = point  # unpacking
 ```
 
 ## A trap: lists are shared
 
 ```python
 a = [1, 2]
-b = a          # b is the SAME list, not a copy
+b = a  # b is the SAME list, not a copy
 b.append(3)
-print(a)       # [1, 2, 3]
-c = a.copy()   # a real copy
+print(a)  # [1, 2, 3]
+c = a.copy()  # a real copy
 ```
 
 This is like two DNS names for one server: change the server and both names see the change.

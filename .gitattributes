@@ -3,3 +3,5 @@
 *.ps1 text eol=crlf
 *.sh text eol=lf
 *.cmd text eol=crlf
+# Bundled libraries are binary-exact: never change their line endings.
+static/vendor/** -text

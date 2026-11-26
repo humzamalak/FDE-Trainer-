@@ -21,11 +21,11 @@ Base 2 uses only 0 and 1. Each position is a power of two.
 $$1011_2 = 1\cdot 2^3 + 0\cdot 2^2 + 1\cdot 2^1 + 1\cdot 2^0 = 8 + 0 + 2 + 1 = 11$$
 
 ```python
-bin(11)          # '0b1011'
-int("1011", 2)   # 11
-hex(255)         # '0xff'
-11 & 1           # 1  -> odd   (bitwise AND)
-1 << 4           # 16          (shift left = multiply by 2^4)
+bin(11)  # '0b1011'
+int("1011", 2)  # 11
+hex(255)  # '0xff'
+11 & 1  # 1  -> odd   (bitwise AND)
+1 << 4  # 16          (shift left = multiply by 2^4)
 ```
 
 Bitwise operators: `&` AND, `|` OR, `^` XOR, `~` NOT, `<<` `>>` shifts. Unix permissions use them: `0o755`.
@@ -46,9 +46,10 @@ $$\binom{n}{k} = \frac{n!}{k!\,(n-k)!}$$
 
 ```python
 import math
-math.factorial(5)   # 120
-math.comb(5, 2)     # 10
-math.perm(5, 2)     # 20
+
+math.factorial(5)  # 120
+math.comb(5, 2)  # 10
+math.perm(5, 2)  # 20
 ```
 
 ## Modular arithmetic

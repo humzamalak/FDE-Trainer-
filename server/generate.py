@@ -8,9 +8,9 @@ the exercise, so a broken exercise is never shown to the learner.
 from __future__ import annotations
 
 import ast
-import os
 
-from server.tutor import api_key_present, learner_profile
+from server import config, usage
+from server.tutor import learner_profile
 
 EXERCISE_TOOL = {
     "name": "create_exercise",
@@ -82,9 +82,9 @@ def build_request(lesson: dict | None, level: str, avoid: list[str], feedback: s
     system = "You write practice exercises for a learning app.\n" + learner_profile()
     content = "\n".join(parts)
     if lesson:
-        content += f"\n\n<lesson title=\"{lesson['title']}\">\n{lesson['raw'][:15000]}\n</lesson>"
+        content += f'\n\n<lesson title="{lesson["title"]}">\n{lesson["raw"][:15000]}\n</lesson>'
     return {
-        "model": os.environ.get("ANTHROPIC_MODEL", "claude-sonnet-5-5"),
+        "model": config.model(),
         "max_tokens": 2500,
         "system": system,
         "tools": [EXERCISE_TOOL],
@@ -93,12 +93,16 @@ def build_request(lesson: dict | None, level: str, avoid: list[str], feedback: s
     }
 
 
-def generate_exercise(lesson: dict | None, level: str = "same", avoid: list[str] | None = None,
-                      feedback: str | None = None, client=None) -> dict:
+def generate_exercise(
+    lesson: dict | None, level: str = "same", avoid: list[str] | None = None, feedback: str | None = None, client=None
+) -> dict:
     """Return {"exercise": {...}} or {"error": "..."}."""
     if client is None:
-        if not api_key_present():
+        if not config.api_key_present():
             return {"error": "No API key. Add ANTHROPIC_API_KEY to .env and restart the app."}
+        over = usage.budget_message()
+        if over:
+            return {"error": over.replace("**", "").replace("\\$", "$")}
         import anthropic
 
         client = anthropic.Anthropic()
@@ -109,6 +113,8 @@ def generate_exercise(lesson: dict | None, level: str = "same", avoid: list[str]
             response = client.messages.create(**request)
         except Exception as exc:  # network, auth, rate limit
             return {"error": f"API error: {exc}"}
+        if getattr(response, "usage", None) is not None:
+            usage.record(response.usage, "generate")
         block = next((b for b in response.content if getattr(b, "type", "") == "tool_use"), None)
         if block is None:
             last_problems = ["the model did not return an exercise"]

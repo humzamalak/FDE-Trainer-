@@ -6,25 +6,27 @@
 You describe tools with a name, a description and a JSON schema. The model does **not** run tools. It replies with a request: "call `get_job_status` with `{"job_id": "123"}`". **Your code** runs the tool and sends back the result. Then the model continues.
 
 ```python
-tools = [{
-    "name": "get_job_status",
-    "description": "Get the status of a Slurm job by its ID.",
-    "input_schema": {
-        "type": "object",
-        "properties": {"job_id": {"type": "string"}},
-        "required": ["job_id"],
-    },
-}]
+tools = [
+    {
+        "name": "get_job_status",
+        "description": "Get the status of a Slurm job by its ID.",
+        "input_schema": {
+            "type": "object",
+            "properties": {"job_id": {"type": "string"}},
+            "required": ["job_id"],
+        },
+    }
+]
 
 resp = client.messages.create(model=MODEL, max_tokens=1000, tools=tools, messages=messages)
 if resp.stop_reason == "tool_use":
     for block in resp.content:
         if block.type == "tool_use":
-            result = run_tool(block.name, block.input)          # YOUR code
+            result = run_tool(block.name, block.input)  # YOUR code
             messages.append({"role": "assistant", "content": resp.content})
-            messages.append({"role": "user", "content": [
-                {"type": "tool_result", "tool_use_id": block.id, "content": str(result)}
-            ]})
+            messages.append(
+                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(result)}]}
+            )
 ```
 
 **Tool descriptions are prompts.** Write them well: what the tool does, when to use it, what each parameter means.

@@ -7,11 +7,12 @@ A **heap** gives you the smallest item in $O(1)$ and adds/removes in $O(\log n)$
 
 ```python
 import heapq
+
 h = []
 heapq.heappush(h, (5, "low"))
 heapq.heappush(h, (1, "urgent"))
-heapq.heappop(h)          # (1, "urgent")
-heapq.nlargest(3, nums)   # top 3
+heapq.heappop(h)  # (1, "urgent")
+heapq.nlargest(3, nums)  # top 3
 ```
 
 For a max-heap, push negative values: `heappush(h, -priority)`.
@@ -34,7 +35,7 @@ def merge(intervals):
     merged = []
     for start, end in intervals:
         if merged and start <= merged[-1][1]:
-            merged[-1][1] = max(merged[-1][1], end)   # overlap: extend
+            merged[-1][1] = max(merged[-1][1], end)  # overlap: extend
         else:
             merged.append([start, end])
     return merged

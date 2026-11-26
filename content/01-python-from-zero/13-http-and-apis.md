@@ -20,14 +20,15 @@ An FDE connects a product to a customer's systems. Nearly all of that is HTTP AP
 ```python
 import requests
 
+
 def get_projects(base_url, token):
     resp = requests.get(
         f"{base_url}/v1/projects",
         headers={"Authorization": f"Bearer {token}"},
         params={"page": 1},
-        timeout=10,                     # always set a timeout
+        timeout=10,  # always set a timeout
     )
-    resp.raise_for_status()             # raises for 4xx/5xx
+    resp.raise_for_status()  # raises for 4xx/5xx
     return resp.json()
 ```
 
@@ -41,11 +42,14 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
+
 class JobIn(BaseModel):
     name: str
     gpus: int = 1
 
+
 JOBS: dict[int, dict] = {}
+
 
 @app.post("/jobs", status_code=201)
 def create_job(job: JobIn):
@@ -54,6 +58,7 @@ def create_job(job: JobIn):
     job_id = len(JOBS) + 1
     JOBS[job_id] = job.model_dump()
     return {"id": job_id, **JOBS[job_id]}
+
 
 @app.get("/jobs/{job_id}")
 def get_job(job_id: int):

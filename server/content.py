@@ -43,8 +43,11 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-BLOCK_RE = re.compile(r"^:::(exercise|quiz|written)[ \t]*(.*?)\n(.*?)^:::[ \t]*$", re.S | re.M)
-SECTION_RE = re.compile(r"^--- *(starter|tests|solution|rubric) *---[ \t]*$", re.M)
+BLOCK_RE = re.compile(r"^:::(exercise|quiz|written|sql|js)[ \t]*(.*?)\n(.*?)^:::[ \t]*$", re.S | re.M)
+EXPLICIT_ID_RE = re.compile(r"\s*\{#([a-z0-9][a-z0-9-]*)\}\s*$")
+LEGACY_ID_RE = re.compile(r"#(exercise|quiz|written)-\d+$")
+ID_PREFIX = {"exercise": "ex", "written": "wr", "quiz": "q", "sql": "sql", "js": "js"}
+SECTION_RE = re.compile(r"^--- *(starter|tests|solution|rubric|schema|expected) *---[ \t]*$", re.M)
 NAME_RE = re.compile(r"^(\d+)-(.+)$")
 
 
@@ -83,12 +86,22 @@ def _minutes_from_markdown(text: str) -> int:
 def load_curriculum(root: Path) -> list[Track]:
     """Read every track folder and lesson file, sorted by their number prefix."""
     tracks: list[Track] = []
-    for folder in sorted(p for p in root.iterdir() if p.is_dir() and NAME_RE.match(p.name)):
+
+    def order(folder: Path) -> tuple[float, str]:
+        # A track can set its place with <!-- order: 3.5 --> in _track.md (new tracks can sit
+        # between old ones without renaming folders, which would change saved progress IDs).
+        track_md = folder / "_track.md"
+        text = track_md.read_text(encoding="utf-8") if track_md.exists() else ""
+        match = re.search(r"<!--\s*order:\s*([\d.]+)\s*-->", text)
+        number = NAME_RE.match(folder.name).group(1)  # type: ignore[union-attr]
+        return (float(match.group(1)) if match else float(number), folder.name)
+
+    for folder in sorted((p for p in root.iterdir() if p.is_dir() and NAME_RE.match(p.name)), key=order):
         track_md = folder / "_track.md"
         track_text = track_md.read_text(encoding="utf-8") if track_md.exists() else ""
         title = _title_from_markdown(track_text, folder.name)
         description = "\n".join(
-            line for line in track_text.splitlines() if not line.startswith("# ")
+            line for line in track_text.splitlines() if not line.startswith("# ") and not line.startswith("<!--")
         ).strip()
         track = Track(id=folder.name, title=title, description=description)
         for file in sorted(folder.glob("*.md")):
@@ -112,7 +125,7 @@ def _split_sections(body: str) -> dict[str, str]:
     """Split an exercise/written block into 'prompt' plus its named sections."""
     parts = SECTION_RE.split(body)
     sections = {"prompt": parts[0].strip()}
-    for name, content in zip(parts[1::2], parts[2::2]):
+    for name, content in zip(parts[1::2], parts[2::2], strict=True):
         sections[name] = content.strip("\n")
     return sections
 
@@ -134,20 +147,43 @@ def _parse_quiz(body: str) -> list[dict]:
     return questions
 
 
+def slugify(text: str) -> str:
+    slug = re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+    return slug[:60] or "block"
+
+
 def parse_lesson(text: str, lesson_id: str) -> dict:
-    """Turn lesson Markdown into {markdown, blocks}."""
+    """Turn lesson Markdown into {markdown, blocks}.
+
+    Block IDs are stable: they come from the title (exercise, written, sql, js) or from the
+    quiz's position among the lesson's quizzes, never from the position among all blocks.
+    An explicit ID can be given at the end of the title line: `:::exercise Title {#my-id}`.
+    Each block also gets `legacy_id` (the old position-based ID) so saved progress can be migrated.
+    """
     blocks: list[dict] = []
+    quiz_count = 0
 
     def replace(match: re.Match) -> str:
+        nonlocal quiz_count
         kind, title, body = match.group(1), match.group(2).strip(), match.group(3)
         index = len(blocks)
-        block_id = f"{lesson_id}#{kind}-{index}"
+        explicit = EXPLICIT_ID_RE.search(title)
+        if explicit:
+            title = title[: explicit.start()].strip()
+        if explicit:
+            suffix = explicit.group(1)
+        elif kind == "quiz":
+            quiz_count += 1
+            suffix = str(quiz_count)
+        else:
+            suffix = slugify(title or kind)
+        block_id = f"{lesson_id}#{ID_PREFIX[kind]}-{suffix}"
+        legacy = f"{lesson_id}#{kind}-{index}" if kind in ("exercise", "quiz", "written") else None
         if kind == "quiz":
-            blocks.append({"id": block_id, "kind": "quiz", "questions": _parse_quiz(body)})
+            blocks.append({"id": block_id, "legacy_id": legacy, "kind": "quiz", "questions": _parse_quiz(body)})
         else:
             sections = _split_sections(body)
-            block = {"id": block_id, "kind": kind, "title": title or kind.title(), **sections}
-            blocks.append(block)
+            blocks.append({"id": block_id, "legacy_id": legacy, "kind": kind, "title": title or kind.title(), **sections})
         return f'\n<div class="block" data-block="{index}"></div>\n'
 
     markdown = BLOCK_RE.sub(replace, text)
@@ -155,13 +191,28 @@ def parse_lesson(text: str, lesson_id: str) -> dict:
 
 
 class Content:
-    """In-memory index of the curriculum. Reload it when files change."""
+    """In-memory index of the curriculum.
+
+    Parsed lessons are cached. A file is read again only when its modification time changes,
+    and the track list is rebuilt only when a Markdown file is added, removed or changed.
+    """
 
     def __init__(self, root: Path):
         self.root = root
+        self._signature: tuple = ()
+        self._parsed: dict[str, tuple[float, dict]] = {}
+        self.tracks: list[Track] = []
+        self.lessons: dict[str, Lesson] = {}
         self.reload()
 
+    def _current_signature(self) -> tuple:
+        return tuple(sorted((str(p), p.stat().st_mtime) for p in self.root.glob("*/*.md")))
+
     def reload(self) -> None:
+        signature = self._current_signature()
+        if signature == self._signature:
+            return
+        self._signature = signature
         self.tracks = load_curriculum(self.root)
         self.lessons = {lesson.id: lesson for t in self.tracks for lesson in t.lessons}
 
@@ -180,16 +231,36 @@ class Content:
         lesson = self.lessons.get(lesson_id)  # only ids from the index: no path traversal
         if lesson is None:
             return None
+        mtime = lesson.path.stat().st_mtime
+        cached = self._parsed.get(lesson_id)
+        if cached and cached[0] == mtime:
+            return cached[1]
         text = lesson.path.read_text(encoding="utf-8")
-        parsed = parse_lesson(text, lesson_id)
-        return {**lesson.summary(), "track_id": lesson.track_id, **parsed, "raw": text}
+        data = {**lesson.summary(), "track_id": lesson.track_id, **parse_lesson(text, lesson_id), "raw": text}
+        self._parsed[lesson_id] = (mtime, data)
+        return data
 
-    def all_exercises(self) -> list[dict]:
-        """Every exercise block in the curriculum (used by the content checks)."""
-        result = []
-        for lesson_id in self.lessons:
-            data = self.lesson(lesson_id)
-            for block in data["blocks"]:
-                if block["kind"] == "exercise":
-                    result.append({"lesson": lesson_id, **block})
-        return result
+    def lesson_data(self, lesson_id: str) -> dict:
+        """Like lesson(), for IDs known to exist (raises KeyError otherwise)."""
+        data = self.lesson(lesson_id)
+        if data is None:
+            raise KeyError(lesson_id)
+        return data
+
+    def block(self, block_id: str) -> dict | None:
+        lesson_id = block_id.split("#", 1)[0]
+        data = self.lesson(lesson_id)
+        if data is None:
+            return None
+        return next((b for b in data["blocks"] if b["id"] == block_id), None)
+
+    def all_blocks(self) -> list[dict]:
+        return [{"lesson": lid, **b} for lid in self.lessons for b in self.lesson_data(lid)["blocks"]]
+
+    def legacy_map(self) -> dict[str, str]:
+        """Old position-based block ID -> stable ID."""
+        return {b["legacy_id"]: b["id"] for b in self.all_blocks() if b.get("legacy_id")}
+
+    def all_exercises(self, kind: str = "exercise") -> list[dict]:
+        """Every block of one kind in the curriculum (used by the content checks)."""
+        return [b for b in self.all_blocks() if b["kind"] == kind]

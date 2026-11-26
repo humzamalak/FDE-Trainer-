@@ -3,6 +3,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 import server.app as app_module
+from server import config
 from server.generate import generate_exercise, validate_exercise
 
 GOOD = {
@@ -64,13 +65,14 @@ def test_generate_retries_once_then_gives_up():
 def test_generated_store_roundtrip(tmp_path, monkeypatch):
     monkeypatch.setattr(app_module, "DATA_DIR", tmp_path)
     monkeypatch.setattr(app_module, "GENERATED_FILE", tmp_path / "generated.json")
-    client = TestClient(app_module.app)
-    saved = client.post("/api/generated", json={"lesson_id": "01-x/02-y", "exercise": GOOD}).json()
+    client = TestClient(app_module.app, headers={"X-FDE-Token": config.API_TOKEN})
+    assert client.post("/api/generated", json={"lesson_id": "01-x/02-y", "exercise": GOOD}).status_code == 400  # not verified
+    saved = client.post("/api/generated", json={"lesson_id": "01-x/02-y", "exercise": GOOD, "verified": True}).json()
     assert saved["id"] == "01-x/02-y#gen-1" and saved["generated"] is True
-    second = client.post("/api/generated", json={"lesson_id": "01-x/02-y", "exercise": GOOD}).json()
+    second = client.post("/api/generated", json={"lesson_id": "01-x/02-y", "exercise": GOOD, "verified": True}).json()
     assert second["id"] == "01-x/02-y#gen-2"
     assert len(client.get("/api/generated", params={"lesson_id": "01-x/02-y"}).json()["items"]) == 2
     assert len(client.get("/api/generated").json()["items"]) == 2
     client.delete("/api/generated", params={"id": saved["id"]})
     assert [e["id"] for e in client.get("/api/generated").json()["items"]] == ["01-x/02-y#gen-2"]
-    assert client.post("/api/generated", json={"lesson_id": "a", "exercise": {"title": "x"}}).status_code == 400
+    assert client.post("/api/generated", json={"lesson_id": "a", "exercise": {"title": "x"}, "verified": True}).status_code == 400

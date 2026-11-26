@@ -19,6 +19,7 @@ graph = {
 ```python
 from collections import deque
 
+
 def shortest_steps(graph, start, goal):
     queue = deque([(start, 0)])
     seen = {start}
