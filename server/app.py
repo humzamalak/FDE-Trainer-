@@ -38,6 +38,19 @@ _lock = threading.Lock()
 app = FastAPI(title="FDE Trainer")
 
 
+@app.middleware("http")
+async def cache_headers(request, call_next):
+    """App files: the browser must check for a newer version each time (cheap 304 if unchanged).
+    Bundled libraries never change, so they may be cached for a day."""
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/static/vendor/"):
+        response.headers["Cache-Control"] = "public, max-age=86400"
+    elif path == "/" or path.startswith("/static/") or path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
+
+
 # ---------- content ----------
 
 @app.get("/api/curriculum")

@@ -28,3 +28,9 @@ def test_tutor_without_key(monkeypatch):
     monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
     response = client.post("/api/tutor", json={"messages": [{"role": "user", "content": "hi"}]})
     assert "No API key" in response.text
+
+
+def test_cache_headers():
+    assert client.get("/static/app.js").headers["cache-control"] == "no-cache"
+    assert client.get("/").headers["cache-control"] == "no-cache"
+    assert "max-age" in client.get("/static/vendor/marked/marked.min.js").headers["cache-control"]
