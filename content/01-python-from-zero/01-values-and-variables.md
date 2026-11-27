@@ -50,6 +50,39 @@ Input from files, APIs and users is usually text. You must convert it before you
 
 Use `snake_case`: lowercase words joined with `_`. Choose names that say what the value is. `monthly_cost_gbp` is better than `x`.
 
+## Just enough functions and lists (for the next lessons)
+
+From lesson 2 on, most exercises ask you to **write a function**, and some use **lists**. Lessons 5–7 teach both properly. For now you only need this much.
+
+A **function** is a named piece of code. It takes inputs (parameters) and gives back a result with `return`:
+
+```python
+def monthly_cost(hourly_cost, hours):
+    return round(hourly_cost * hours, 2)
+
+print(monthly_cost(0.192, 730))  # 140.16
+```
+
+- `def` starts the function, then its name, then the parameters in brackets, then `:`.
+- The body is **indented** by 4 spaces. Indentation is how Python knows what is inside the function.
+- `return` ends the function and gives the value back. Without `return`, the result is `None`.
+- In starter code, `pass` means "nothing here yet". Replace it with your code.
+- The tests call your function, for example `assert monthly_cost(0.192, 730) == 140.16`. `assert` does nothing if the check is true and stops with an error if it is false.
+
+A **list** holds several values in order, inside `[ ]`:
+
+```python
+costs = [12.5, 3.0, 7.25]
+costs.append(1.0)        # add to the end: [12.5, 3.0, 7.25, 1.0]
+print(len(costs))        # 4 (how many items)
+print(costs[0])          # 12.5 (the first item; counting starts at 0)
+print(costs[-1])         # 1.0 (the last item)
+print(costs[1:3])        # [3.0, 7.25] (a slice: from index 1 up to, not including, 3)
+print(min(costs), max(costs), sum(costs))
+```
+
+That is all you need until lesson 5. If an exercise uses something you have not seen, ask the tutor or skip ahead and come back.
+
 :::exercise Monthly cost
 An instance costs `0.192` per hour. A month has `730` hours.
 

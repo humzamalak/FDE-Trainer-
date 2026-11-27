@@ -1,7 +1,7 @@
 // Job search tracker: every application, its stage and the next step. Saved with your progress
 // (section "applications"), so it is in Export and survives a lost browser.
 
-import { $, el } from "../dom.js";
+import { $, el, routeGuard } from "../dom.js";
 import { saveProgress } from "../api.js";
 import { state } from "../state.js";
 import { renderSidebar } from "../sidebar.js";
@@ -18,6 +18,8 @@ export function renderJobs() {
   const main = $("#main");
   main.innerHTML = "";
   const status = el("span", { class: "muted small", role: "status" });
+  const stale = routeGuard();
+  const again = () => { if (!stale()) renderJobs(); };  // not if you left the page while it saved
   const save = async () => { status.textContent = "Saving…"; await saveProgress("applications", null, rows); status.textContent = "Saved."; };
   const counts = STAGES.map((s) => [s, rows.filter((r) => r.stage === s).length]).filter(([, n]) => n);
   const table = el("table", { class: "result-table jobs" },
@@ -27,11 +29,11 @@ export function renderJobs() {
         ? el("select", { "aria-label": label, onchange: (e) => { row.stage = e.target.value; save(); } },
           STAGES.map((s) => el("option", { value: s, selected: (row.stage || STAGES[0]) === s }, s)))
         : el("input", { "aria-label": label, type: key === "applied" ? "date" : "text", value: row[key] || "", onchange: (e) => { row[key] = e.target.value; save(); } }))),
-      el("td", {}, el("button", { class: "btn small", onclick: () => { rows.splice(i, 1); save().then(renderJobs); } }, "Delete"))))));
+      el("td", {}, el("button", { class: "btn small", onclick: () => { rows.splice(i, 1); save().then(again); } }, "Delete"))))));
   main.append(el("div", { class: "inner" },
     el("h1", {}, "Job search tracker"),
     el("p", { class: "muted" }, "Track every application. Aim for most applications through a referral or a direct message to the hiring manager: cold applications have a low reply rate. The lessons in track 7 explain the method."),
     counts.length ? el("p", {}, counts.map(([s, n]) => `${s}: ${n}`).join(" · ")) : "",
-    el("div", { class: "toolbar" }, el("button", { class: "btn primary", onclick: () => { rows.push({ stage: STAGES[0] }); save().then(renderJobs); } }, "Add application"), status),
+    el("div", { class: "toolbar" }, el("button", { class: "btn primary", onclick: () => { rows.push({ stage: STAGES[0] }); save().then(again); } }, "Add application"), status),
     el("div", { class: "table-scroll" }, table)));
 }

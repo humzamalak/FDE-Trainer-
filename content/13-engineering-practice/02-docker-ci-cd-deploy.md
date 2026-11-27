@@ -7,20 +7,26 @@ You know containers and clusters from the platform side. As an FDE you also **pa
 
 ```dockerfile
 # syntax=docker/dockerfile:1
-FROM python:3.12-slim AS base            # a pinned, small base image (never :latest)
+# A pinned, small base image (never :latest)
+FROM python:3.12-slim AS base
 ENV PYTHONDONTWRITEBYTECODE=1 PYTHONUNBUFFERED=1
 WORKDIR /app
 
-COPY requirements.txt .                   # dependencies first: this layer is cached
+# Dependencies first: this layer is cached
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY . .                                  # then the code, which changes often
+# Then the code, which changes often
+COPY . .
 RUN useradd --create-home app
-USER app                                  # do not run as root
+# Do not run as root
+USER app
 EXPOSE 8000
 HEALTHCHECK CMD python -c "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health')"
 CMD ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
+
+Comments in a Dockerfile must be on **their own line**. A `#` later in a line is not a comment: it becomes part of the instruction (`COPY . . # code` tries to copy files named `#` and `code`, and the build fails).
 
 Rules: pin the base image; copy the dependency file before the code (layer caching); a `.dockerignore` for `.git`, `.venv`, `.env` and data; run as a non-root user; **never put secrets in the image** (`ENV API_KEY=...` stays in every layer forever) — pass them at run time from the platform's secret store; one process per container; log to stdout. Multi-stage builds keep compilers out of the final image.
 
@@ -66,7 +72,7 @@ Write `lint(dockerfile)` that returns a list of problems (strings, in this order
 `"runs as root"` if there is no `USER` line, or the last `USER` is `root`;
 `"secret in image"` if an `ENV` or `ARG` line contains `KEY`, `TOKEN`, `PASSWORD` or `SECRET` (any case) followed by `=`;
 `"code copied before dependencies"` if a `COPY . ` line comes before the line that installs requirements (`pip install`).
-Ignore comment lines and the text after a `#` on any line.
+Ignore comment lines (lines whose first non-space character is `#`). Like Docker, treat a `#` later in a line as part of the instruction, not as a comment.
 --- starter ---
 def lint(dockerfile):
     problems = []
@@ -89,15 +95,16 @@ RUN pip install -r requirements.txt
 CMD ["python", "main.py"]"""
 assert lint(bad) == ["unpinned base image", "runs as root", "secret in image", "code copied before dependencies"]
 assert lint("FROM node:latest\nUSER root") == ["unpinned base image", "runs as root"]
-assert lint("# FROM python\nFROM python:3.12 AS build  # :latest is bad\nUSER app") == []
+assert lint("# FROM python\n  # :latest is bad\nFROM python:3.12 AS build\nUSER app") == []
+assert lint("FROM python:3.12\nENV TAG=v1 # API_KEY=abc\nUSER app") == ["secret in image"]  # not a comment in Docker
 --- solution ---
 import re
 
 def lint(dockerfile):
     lines = []
     for raw in dockerfile.splitlines():
-        line = raw.split("#", 1)[0].strip()
-        if line:
+        line = raw.strip()
+        if line and not line.startswith("#"):
             lines.append(line)
     problems = []
     images = [line.split()[1] for line in lines if line.upper().startswith("FROM ") and len(line.split()) > 1]

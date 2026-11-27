@@ -5,10 +5,11 @@ After "is it accurate?", the next two customer questions are "is it fast enough?
 
 ## Where the time goes
 
-$$\text{latency} \approx \text{time to first token} + \frac{\text{output tokens}}{\text{tokens per second}} + \text{your own steps}$$
+$$\text{latency} \approx \text{time to first token} + \frac{\text{output tokens (thinking included)}}{\text{tokens per second}} + \text{your own steps}$$
 
 - **Time to first token (TTFT)**: network, queueing, and reading the input. Longer inputs add some time; prompt caching can cut it.
 - **Output generation** is usually the biggest part. Output is generated one token at a time, so **500 output tokens take roughly 10× longer than 50**. Ask for short outputs.
+- **Thinking**: current models think before they answer. Thinking tokens are generated like output, so they add time even though you may not see them. The `effort` setting (`low` to `max`) controls how much the model thinks.
 - **Your own steps**: retrieval, tool calls, re-ranking, and every extra model call in an agent loop.
 
 Users feel **streaming** as much faster: the first words appear after the TTFT, not after the whole answer.
@@ -17,13 +18,14 @@ Measure **p50 and p95** (the median and the slow tail), not the average. The slo
 
 ## Where the money goes
 
-Cost = input tokens × input price + output tokens × output price, per million tokens. Output tokens usually cost several times more than input tokens. Check the provider's current price page; prices change.
+Cost = input tokens × input price + output tokens × output price, per million tokens. **Thinking tokens are billed as output tokens.** Output tokens usually cost several times more than input tokens. Check the provider's current price page; prices change.
 
 ## The levers
 
 | Lever | Faster | Cheaper | Trade-off |
 |---|---|---|---|
 | Shorter outputs (ask for it; set `max_tokens`) | ✓✓ | ✓✓ | Less detail |
+| Lower `effort` (less thinking) for easy steps | ✓✓ | ✓✓ | Hard questions may get worse answers; check with evals |
 | Smaller model for easy steps (routing) | ✓ | ✓✓ | Check quality with evals |
 | Prompt caching of the long, stable start of the prompt | ✓ | ✓✓ (cached reads are a fraction of the input price) | The cached part must be identical, at the start |
 | Fewer retrieved chunks / shorter context | ✓ | ✓ | Recall may fall |

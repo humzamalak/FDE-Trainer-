@@ -1,6 +1,8 @@
 """Generate new practice exercises with the Claude API, so practice never runs out.
 
-The model must call the `create_exercise` tool, which forces a fixed JSON shape.
+The model is told to call the `create_exercise` tool; `strict: true` makes the arguments match
+its schema exactly. (Current models reject a forced `tool_choice`, so it stays on "auto" and the
+code retries if the reply has no tool call.)
 The browser then runs the solution against the tests in Pyodide before it shows
 the exercise, so a broken exercise is never shown to the learner.
 """
@@ -14,6 +16,7 @@ from server.tutor import learner_profile
 
 EXERCISE_TOOL = {
     "name": "create_exercise",
+    "strict": True,
     "description": "Create one Python practice exercise with starter code, tests and a reference solution.",
     "input_schema": {
         "type": "object",
@@ -32,6 +35,7 @@ EXERCISE_TOOL = {
             "hint": {"type": "string", "description": "One short hint that does not give the solution away."},
         },
         "required": ["title", "prompt", "starter", "tests", "solution", "hint"],
+        "additionalProperties": False,
     },
 }
 
@@ -69,7 +73,7 @@ def validate_exercise(data: dict) -> list[str]:
 
 def build_request(lesson: dict | None, level: str, avoid: list[str], feedback: str | None) -> dict:
     parts = [
-        "Write ONE new Python practice exercise for the lesson below.",
+        "Write ONE new Python practice exercise for the lesson below. Return it by calling the create_exercise tool.",
         LEVELS.get(level, LEVELS["same"]),
         "Use only the Python standard library (pandas and numpy also work, but use them only when the lesson is about pandas). The code runs in the browser (Pyodide): no network, no files, no input().",
         "Use a realistic context from cloud, HPC, data or AI engineering where it fits.",
@@ -85,10 +89,10 @@ def build_request(lesson: dict | None, level: str, avoid: list[str], feedback: s
         content += f'\n\n<lesson title="{lesson["title"]}">\n{lesson["raw"][:15000]}\n</lesson>'
     return {
         "model": config.model(),
-        "max_tokens": 2500,
+        "max_tokens": 16000,  # thinking counts toward this; you pay only for tokens used
         "system": system,
         "tools": [EXERCISE_TOOL],
-        "tool_choice": {"type": "tool", "name": "create_exercise"},
+        "tool_choice": {"type": "auto"},
         "messages": [{"role": "user", "content": content}],
     }
 

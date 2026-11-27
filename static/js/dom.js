@@ -2,6 +2,13 @@
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 
+// Call at the start of an async page render; after each await, `if (stale()) return;`.
+// If you moved to another page while the data loaded, the late render does not replace it.
+export function routeGuard() {
+  const hash = location.hash;
+  return () => location.hash !== hash;
+}
+
 // el("div", { class: "card", onclick: fn }, child1, "text", [child2, child3])
 export function el(tag, attrs = {}, ...children) {
   const node = document.createElement(tag);

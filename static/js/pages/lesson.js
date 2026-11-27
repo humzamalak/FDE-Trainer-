@@ -1,4 +1,4 @@
-import { $, el } from "../dom.js";
+import { $, el, routeGuard } from "../dom.js";
 import { api, saveProgress } from "../api.js";
 import { refreshEditors } from "../editor.js";
 import { renderMarkdown } from "../markdown.js";
@@ -9,7 +9,9 @@ import { setChatKey } from "../tutor.js";
 import { blockWidget } from "../widgets.js";
 
 export async function renderLesson(id) {
+  const stale = routeGuard();
   const lesson = await api(`/api/lesson/${id}`);
+  if (stale()) return;
   state.lesson = lesson;
   saveProgress("last_lesson", null, id).catch(() => {});
   renderSidebar();

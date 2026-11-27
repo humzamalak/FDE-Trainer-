@@ -27,7 +27,7 @@ GROUP BY project
 ORDER BY total DESC;
 ```
 
-**Rule:** every column in `SELECT` must be either in `GROUP BY` or inside an aggregate.
+**Rule:** every column in `SELECT` must be either in `GROUP BY` or inside an aggregate. Postgres and most databases give an error if you break it. **SQLite (used in this app) does not**: it returns a value from some row of the group, which looks fine but is a silent bug. Follow the rule anyway.
 
 ## HAVING: filter groups
 

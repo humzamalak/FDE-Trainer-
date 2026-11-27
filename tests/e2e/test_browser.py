@@ -36,11 +36,15 @@ def server(tmp_path_factory):
     data_dir = tmp_path_factory.mktemp("data")
     port = _free_port()
     env = {**os.environ, "FDE_DATA_DIR": str(data_dir), "ANTHROPIC_API_KEY": ""}
+    # Log to a file, not a pipe: nobody reads a pipe while the tests run, and once its
+    # buffer fills (quickly on Windows) uvicorn blocks on its next access-log line.
+    log_path = data_dir / "server.log"
+    log = log_path.open("wb")
     proc = subprocess.Popen(
         [sys.executable, "-m", "uvicorn", "server.app:app", "--host", "127.0.0.1", "--port", str(port)],
         cwd=ROOT,
         env=env,
-        stdout=subprocess.PIPE,
+        stdout=log,
         stderr=subprocess.STDOUT,
     )
     url = f"http://127.0.0.1:{port}"
@@ -52,10 +56,12 @@ def server(tmp_path_factory):
             time.sleep(0.1)
     else:
         proc.kill()
-        pytest.fail("server did not start: " + proc.stdout.read().decode(errors="replace"))
+        log.close()
+        pytest.fail("server did not start: " + log_path.read_text(errors="replace"))
     yield {"url": url, "data": data_dir}
     proc.terminate()
     proc.wait(timeout=10)
+    log.close()
 
 
 @pytest.fixture(scope="module")
@@ -215,7 +221,7 @@ def test_placement_plan_and_job_tracker(page, server):
     page.get_by_text("Start with:").wait_for()
     page.goto(server["url"] + "/#/")
     page.get_by_role("button", name="Save plan").click()
-    page.get_by_text("STUDY PLAN").wait_for()
+    page.get_by_text("STUDY PLAN ·").wait_for()  # the saved-plan card ("Your study plan" also matches "STUDY PLAN")
     page.get_by_text("Skill map").wait_for()
     page.goto(server["url"] + "/#/jobs")
     page.get_by_role("button", name="Add application").click()

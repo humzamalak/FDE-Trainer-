@@ -30,7 +30,7 @@ ORDER BY hours DESC               -- sort (DESC = biggest first)
 LIMIT 2;                          -- at most 2 rows
 ```
 
-SQL runs in this order: `FROM` → `WHERE` → `SELECT` → `ORDER BY` → `LIMIT`. This is why you cannot use a column alias from `SELECT` inside `WHERE`.
+SQL runs in this order: `FROM` → `WHERE` → `SELECT` → `ORDER BY` → `LIMIT`. This is why standard SQL (and Postgres, the database most customers use) does not let you use a column alias from `SELECT` inside `WHERE`. **SQLite, which runs the exercises in this app, is more lenient and allows it** — so if you try it here and it works, do not rely on it in an interview or at a customer. Repeat the expression in `WHERE`, or use a subquery or CTE.
 
 ## Filters
 

@@ -1,7 +1,7 @@
 // Placement test: a short quiz across every skill. The result fills the skill map and says
 // where to start, so you do not repeat what you already know.
 
-import { $, el } from "../dom.js";
+import { $, el, routeGuard } from "../dom.js";
 import { api, reviewItem, saveProgress } from "../api.js";
 import { inlineMd } from "../markdown.js";
 import { state } from "../state.js";
@@ -11,7 +11,9 @@ const PASS = 75; // percent per skill to skip its first track
 
 export async function renderPlacement() {
   state.lesson = null; renderSidebar();
+  const stale = routeGuard();
   const { skills } = await api("/api/placement");
+  if (stale()) return;
   const main = $("#main");
   main.innerHTML = "";
   const total = skills.reduce((a, s) => a + s.questions.length, 0);

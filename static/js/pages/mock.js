@@ -1,6 +1,6 @@
 // Mock interviews. Every mock is saved (data/mocks.json) with its verdict, so you can see progress.
 
-import { $, el, perFrame, safeStorage } from "../dom.js";
+import { $, el, perFrame, safeStorage, routeGuard } from "../dom.js";
 import { api, authFetch, streamTutor } from "../api.js";
 import { makeEditor } from "../editor.js";
 import { renderMarkdown } from "../markdown.js";
@@ -68,7 +68,9 @@ export async function renderMockMenu() {
 
 export async function renderMockView(id) {
   state.lesson = null; renderSidebar();
+  const stale = routeGuard();
   const mock = await api(`/api/mocks/${encodeURIComponent(id)}`);
+  if (stale()) return;
   const main = $("#main");
   main.innerHTML = "";
   const log = el("div", { class: "chat-log transcript" });
@@ -187,7 +189,9 @@ export async function renderLoopDay() {
   const storage = safeStorage();
   let loop = null;
   try { loop = JSON.parse(storage?.getItem(LOOP_KEY) || "null"); } catch (e) { /* ignore */ }
+  const stale = routeGuard();
   const { items } = await api("/api/mocks");
+  if (stale()) return;
   const main = $("#main");
   main.innerHTML = "";
   const inner = el("div", { class: "inner" }, el("a", { href: "#/mock", class: "btn small" }, "← All mocks"),

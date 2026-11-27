@@ -3,7 +3,7 @@
 
 ## The mental model
 
-An LLM predicts the next **token** (a piece of a word, ~4 characters) again and again. It has no memory between calls. **Every call sends the whole conversation.** The model has a **context window** (for example 200k tokens): the maximum input + output size.
+An LLM predicts the next **token** (a piece of a word, ~4 characters) again and again. It has no memory between calls. **Every call sends the whole conversation.** The model has a **context window** (current Claude models: 1M tokens): the maximum input + output size.
 
 ## The Messages API (Claude)
 
@@ -13,13 +13,17 @@ import anthropic
 client = anthropic.Anthropic()  # reads ANTHROPIC_API_KEY from the environment
 response = client.messages.create(
     model="claude-sonnet-5-5",
-    max_tokens=1000,  # maximum OUTPUT tokens
+    max_tokens=4000,  # maximum OUTPUT tokens, thinking included
     system="You are a support assistant for an HPC cluster. Answer briefly.",
     messages=[
         {"role": "user", "content": "How do I check my Slurm jobs?"},
     ],
 )
-print(response.content[0].text)
+# The reply is a list of blocks. Current models think first, so the first block
+# can be a "thinking" block, not text: always check the type.
+for block in response.content:
+    if block.type == "text":
+        print(block.text)
 print(response.usage.input_tokens, response.usage.output_tokens)
 print(response.stop_reason)  # "end_turn", "max_tokens", "tool_use", ...
 ```
@@ -31,7 +35,8 @@ print(response.stop_reason)  # "end_turn", "max_tokens", "tool_use", ...
 ## Parameters
 
 - `max_tokens`: if the reply hits it, `stop_reason` is `"max_tokens"` and the text is cut. Check this.
-- `temperature`: randomness. Low (0–0.3) for extraction and classification. Higher for creative text.
+- **Thinking and `effort`**: current Claude models think before they answer. Thinking tokens are billed as **output** and count toward `max_tokens`, so do not set `max_tokens` too low. You control how much the model thinks with `output_config={"effort": "low"}` (`low`, `medium`, `high`, `xhigh`, `max`). Use `low` for simple extraction and classification, higher for hard reasoning. Lower effort is faster and cheaper.
+- `temperature`: older models and other providers let you set randomness (low for extraction, higher for creative text). Current Claude models do not accept it (the API returns an error), so use `effort` and clear instructions instead. You will still see `temperature` in older code and in interviews.
 - **Streaming**: get tokens as they are made (`client.messages.stream(...)`). Users see progress. This app's tutor uses streaming — read `server/tutor.py`.
 
 ## Cost and speed
@@ -143,4 +148,8 @@ Q: The reply stops mid-sentence and stop_reason is "max_tokens". What do you do?
 - [x] Increase max_tokens or ask for a shorter answer
 - [ ] Retry the same call
 - [ ] Lower the temperature
+Q: Your call to a current Claude model fails at `response.content[0].text`. Why?
+- [x] The first block can be a thinking block, which has no text; loop over the blocks and use the ones whose type is "text"
+- [ ] The API key is wrong
+- [ ] `content` is a string, not a list
 :::

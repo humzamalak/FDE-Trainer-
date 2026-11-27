@@ -1,4 +1,4 @@
-import { $, el, formatDuration, plural, safeStorage } from "../dom.js";
+import { $, el, formatDuration, plural, routeGuard, safeStorage } from "../dom.js";
 import { api, saveProgress } from "../api.js";
 import { renderMarkdown } from "../markdown.js";
 import { allLessons, lessonDone, state } from "../state.js";
@@ -10,8 +10,10 @@ const DEFAULT_WEEKLY_HOURS = 10;
 export async function renderDashboard() {
   state.lesson = null; renderSidebar();
   setChatKey("general");
+  const stale = routeGuard();
   let stats = null;
   try { stats = await api("/api/stats"); } catch (e) { /* show the page without stats */ }
+  if (stale()) return;
   const lessons = allLessons();
   const done = lessons.filter((l) => lessonDone(l.id)).length;
   const next = lessons.find((l) => !lessonDone(l.id));
@@ -121,8 +123,9 @@ function planCard(plan) {
       el("p", { class: "small" }, "The tracks are planned for 24 weeks at about 10 hours per week. Set your start date and your real hours per week. The dashboard then shows where you should be and whether you are ahead or behind."),
       el("div", { class: "toolbar" }, el("label", {}, "Start ", start), el("label", {}, "Hours per week ", hours),
         el("button", { class: "btn primary", onclick: async () => {
+          const stale = routeGuard();
           await saveProgress("plan", null, { start: start.value, hours_per_week: Math.max(1, Number(hours.value) || DEFAULT_WEEKLY_HOURS) });
-          renderDashboard();
+          if (!stale()) renderDashboard();
         } }, "Save plan")));
   }
   const d = plan.difference;
@@ -134,7 +137,7 @@ function planCard(plan) {
     el("div", { class: "bar" }, el("i", { style: `width:${pct}%` })),
     el("p", {}, `${plan.done_lessons} lessons done; the plan expects ${plan.expected_lessons} by today. `, el("strong", {}, verdict)),
     plan.should_be_in ? el("p", { class: "small muted" }, `This week the plan has you in: ${plan.should_be_in}.`) : "",
-    el("button", { class: "btn small", onclick: async () => { await saveProgress("plan", null, null); renderDashboard(); } }, "Change plan"));
+    el("button", { class: "btn small", onclick: async () => { const stale = routeGuard(); await saveProgress("plan", null, null); if (!stale()) renderDashboard(); } }, "Change plan"));
 }
 
 // Skill map: one bar per skill, from exercises passed, quiz accuracy and written grades.

@@ -38,7 +38,7 @@ def model() -> str:
 
 
 def max_tokens() -> int:
-    return int(_float("TUTOR_MAX_TOKENS", 2000))
+    return int(_float("TUTOR_MAX_TOKENS", 8000))  # thinking counts toward it; you pay only for tokens used
 
 
 def monthly_budget_usd() -> float:
@@ -49,10 +49,10 @@ def monthly_budget_usd() -> float:
 def prices() -> dict[str, float]:
     """USD per million tokens. Check current prices and set them in .env."""
     return {
-        "input": _float("PRICE_INPUT_PER_MTOK", 3.0),
-        "output": _float("PRICE_OUTPUT_PER_MTOK", 15.0),
-        "cache_write": _float("PRICE_CACHE_WRITE_PER_MTOK", 3.75),
-        "cache_read": _float("PRICE_CACHE_READ_PER_MTOK", 0.30),
+        "input": _float("PRICE_INPUT_PER_MTOK", 2.0),
+        "output": _float("PRICE_OUTPUT_PER_MTOK", 10.0),
+        "cache_write": _float("PRICE_CACHE_WRITE_PER_MTOK", 2.5),
+        "cache_read": _float("PRICE_CACHE_READ_PER_MTOK", 0.10),
     }
 
 

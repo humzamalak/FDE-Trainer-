@@ -123,9 +123,9 @@ For development, add `--reload` so the server restarts when you change Python fi
 |---|---|---|
 | `ANTHROPIC_API_KEY` | (empty) | Your API key. Required for the tutor |
 | `ANTHROPIC_MODEL` | `claude-sonnet-5-5` | The model the tutor uses. A smaller model is cheaper; a larger model gives better feedback |
-| `TUTOR_MAX_TOKENS` | `2000` | Maximum length of one tutor reply |
+| `TUTOR_MAX_TOKENS` | `8000` | Maximum length of one tutor reply, thinking included (you pay only for tokens used) |
 | `MONTHLY_BUDGET_USD` | `10` | AI features stop when this month's estimated spend reaches it. `0` = no limit |
-| `PRICE_INPUT_PER_MTOK` … `PRICE_CACHE_READ_PER_MTOK` | `3` / `15` / `3.75` / `0.30` | USD per million tokens, used to estimate cost. Check the current prices for your model |
+| `PRICE_INPUT_PER_MTOK` … `PRICE_CACHE_READ_PER_MTOK` | `2` / `10` / `2.50` / `0.10` | USD per million tokens (Claude Sonnet 5.5), used to estimate cost. Check the current prices for your model |
 | `FDE_DATA_DIR` | `data/` | Where your progress and other data files are kept |
 
 ## Update to a new version

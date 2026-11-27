@@ -53,7 +53,8 @@ def test_generate_forces_the_tool_and_returns_exercise():
     result = generate_exercise({"title": "Loops", "raw": "# Loops"}, "harder", ["Old one"], client=client)
     assert result["exercise"]["title"] == "Sum evens"
     call = client.calls[0]
-    assert call["tool_choice"] == {"type": "tool", "name": "create_exercise"}
+    assert call["tool_choice"] == {"type": "auto"}  # forced tool choice is rejected by current models
+    assert call["tools"][0]["strict"] is True
     assert "Old one" in call["messages"][0]["content"]
     assert "harder" in call["messages"][0]["content"].lower()
 

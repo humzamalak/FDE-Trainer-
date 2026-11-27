@@ -1,6 +1,6 @@
 // Review queue: wrong quiz answers, exercises you tried but did not pass, low-scored written tasks.
 
-import { $, el, plural } from "../dom.js";
+import { $, el, plural, routeGuard } from "../dom.js";
 import { api, reviewItem, saveProgress } from "../api.js";
 import { refreshEditors } from "../editor.js";
 import { inlineMd } from "../markdown.js";
@@ -11,7 +11,9 @@ import { exerciseWidget, flashcard } from "../widgets.js";
 
 export async function renderReview() {
   state.lesson = null; renderSidebar(); setChatKey("review");
+  const stale = routeGuard();
   const { quizzes, exercises, written, due_quizzes: dueQuizzes = [], due_cards: dueCards = [] } = await api("/api/review");
+  if (stale()) return;
   const main = $("#main");
   main.innerHTML = "";
   const inner = el("div", { class: "inner" }, el("h1", {}, "Review queue"),

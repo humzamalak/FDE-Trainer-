@@ -25,7 +25,7 @@ Loops differ by company and change often. Check each company's process with the 
 Do not start applying to your top companies until most of these are true:
 
 - [ ] I solve 3 of 4 random LeetCode Mediums in 35 minutes, talking aloud.
-- [ ] I have shipped portfolio project 1 (RAG with evals) and project 2 (H200 inference service) with measured results.
+- [ ] I have shipped portfolio projects 1 (document assistant with evals) and 2 (data integration), and ideally 3 (agent with guardrails), with measured results (track 4b).
 - [ ] I can design an air-gapped LLM deployment with numbers in 45 minutes.
 - [ ] I have 8 STAR stories and a calm answer about my CV gaps.
 - [ ] I passed each mock interview type at least 3 times with "lean hire" or better.

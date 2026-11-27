@@ -95,8 +95,8 @@ def sbatch_script(job_name, gpus, hours, model):
     ])
 :::
 
-:::written Plan portfolio project 2
-Write the 1-page proposal for your manager: an LLM inference service on the LSE H200 cluster. Include: problem, users, scope (what is in and out), architecture, security and governance, success metrics, risks, and a 6-week plan.
+:::written Plan an extra project: an LLM inference service {#plan-portfolio-project-2}
+This is an optional extra project, next to the three in track 4b. Write the 1-page proposal for your manager: an LLM inference service on the LSE H200 cluster. Include: problem, users, scope (what is in and out), architecture, security and governance, success metrics, risks, and a 6-week plan.
 --- rubric ---
 - Clear user problem and named user groups (researchers, specific use cases)
 - Scope with explicit out-of-scope items

@@ -32,10 +32,10 @@ def test_usage_cost_and_budget(tmp_path, monkeypatch):
     for name in ("PRICE_INPUT_PER_MTOK", "PRICE_OUTPUT_PER_MTOK", "PRICE_CACHE_WRITE_PER_MTOK", "PRICE_CACHE_READ_PER_MTOK"):
         monkeypatch.delenv(name, raising=False)
     cost = usage.cost_of({"input_tokens": 1000, "output_tokens": 200, "cache_read_input_tokens": 10000})
-    assert round(cost, 6) == 0.009
+    assert round(cost, 6) == 0.005  # default prices: $2 in, $10 out, $0.10 cache read per MTok
     today = date(2026, 11, 26)
     usage.record({"input_tokens": 1000, "output_tokens": 200}, "tutor:tutor", today)
     state = usage.this_month(today)
-    assert state["calls"] == 1 and state["cost"] == 0.006 and not state["over_budget"]
+    assert state["calls"] == 1 and state["cost"] == 0.004 and not state["over_budget"]
     usage.record({"output_tokens": 1000}, "generate", today)
     assert usage.this_month(today)["over_budget"]

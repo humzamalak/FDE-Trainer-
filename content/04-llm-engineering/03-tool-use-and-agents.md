@@ -20,14 +20,19 @@ tools = [
 
 resp = client.messages.create(model=MODEL, max_tokens=1000, tools=tools, messages=messages)
 if resp.stop_reason == "tool_use":
+    # 1. Append the assistant reply ONCE, with all its blocks.
+    messages.append({"role": "assistant", "content": resp.content})
+    # 2. Run every tool call in the reply (there can be several at once).
+    results = []
     for block in resp.content:
         if block.type == "tool_use":
             result = run_tool(block.name, block.input)  # YOUR code
-            messages.append({"role": "assistant", "content": resp.content})
-            messages.append(
-                {"role": "user", "content": [{"type": "tool_result", "tool_use_id": block.id, "content": str(result)}]}
-            )
+            results.append({"type": "tool_result", "tool_use_id": block.id, "content": str(result)})
+    # 3. Send ALL the results back in ONE user message.
+    messages.append({"role": "user", "content": results})
 ```
+
+The model can ask for **several tools in one reply** (parallel tool use). Answer all of them together in one user message. If a tool fails, still send a `tool_result` for it, with `"is_error": True` and the error text.
 
 **Tool descriptions are prompts.** Write them well: what the tool does, when to use it, what each parameter means.
 

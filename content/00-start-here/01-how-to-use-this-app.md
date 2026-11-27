@@ -1,18 +1,22 @@
 # How to use this app
 <!-- minutes: 15 -->
 
-This app takes you from "I cannot code" to "ready for a Forward Deployed Engineer (FDE) interview". It has 10 tracks. Do them in order.
+This app takes you from "I cannot code" to "ready for a Forward Deployed Engineer (FDE) interview". It has 14 tracks. Do them in the order of the sidebar; some run in parallel.
 
 | Track | What you learn | Weeks (at ~10 h/week) |
 |---|---|---|
 | 0. Start here | Study method, tools | 1 |
 | 1. Python from zero | Write real programs | 2–7 |
-| 2. Maths for FDE | The maths interviews use | 5–8 (in parallel) |
+| 2. Maths for FDE | The maths interviews use | 5–9 (in parallel) |
 | 3. Coding interview patterns | Solve LeetCode-style problems | 7–12 |
 | 3b. SQL for data questions | Query data, joins, window functions | 10–12 |
 | 3c. JavaScript and TypeScript | Read and fix customer front ends and Node code | 12–13 |
+| 3d. Reading and debugging unfamiliar code | Find and fix bugs in code you did not write | 13–14 |
 | 4. LLM engineering | Build AI applications | 10–15 |
+| 4b. Portfolio projects | Three guided projects that prove you can do the job | 12–24 (in parallel) |
 | 5. System design | Design customer systems | 14–18 |
+| 5b. Decomposition | Break a vague problem into a plan | 17–19 |
+| 5c. Engineering practice | Git, code review, Docker, CI/CD, writing | 15–17 |
 | 6. Customer skills | Case rounds, STAR stories | 17–21 |
 | 7. Interview ready | The loop, mocks, applications | 21–24 |
 
